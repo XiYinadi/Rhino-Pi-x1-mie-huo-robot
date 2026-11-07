@@ -1,0 +1,31 @@
+# 犀牛派 X1 巡检机器人 — Python 依赖清单
+# 安装：pip install -r requirements.txt
+#
+# 说明：
+# 1. ROS 2 相关包（rclpy / tf2_ros / nav2_msgs / sensor_msgs 等）由 ROS 提供，
+#    不在 pip 清单内，需先 source /opt/ros/humble/setup.bash。
+# 2. 板端系统包（apt）见文末“系统依赖”。
+# 3. 版本为在犀牛派 X1（Ubuntu 22.04 / Python 3.10）实测可用的下限。
+
+# —— 数值与几何 ——
+numpy>=1.24
+scipy>=1.10
+
+# —— 配置解析 ——
+PyYAML>=6.0
+
+# —— 网页服务（web/slam_viz.py）——
+Flask>=2.3
+Flask-SocketIO>=5.3
+python-socketio>=5.9
+simple-websocket>=1.0          # SocketIO 的 WebSocket 传输；缺省时退回轮询
+
+# —— 图像与视觉 ——
+opencv-python>=4.8
+Pillow>=10.0                   # 地图缩略图、报告插图
+
+# —— 系统依赖（apt，不是 pip）——
+# python3-gpiod                # libgpiod v1 Python 绑定：电机/舵机/编码器
+# python3-smbus                # I2C（GY-521）备用
+# python3-opencv               # 若不用 pip 版 opencv
+# ros-humble-*                 # rplidar_ros / slam_toolbox / nav2 / tf2
