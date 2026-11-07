@@ -1,3 +1,8 @@
+# navigation/patrol_runner.py
+# 作用：Supervised route: arrive, settle, inspect, persist, advance.
+# 模块：导航、定位、巡检执行
+# 文档：docs/代码结构说明.md
+
 """Supervised route: arrive, settle, inspect, persist, advance. Never arms motors."""
 import copy
 import math
@@ -7,8 +12,16 @@ from nav2_msgs.action import NavigateToPose
 from action_msgs.msg import GoalStatus
 
 
+# ---------------------------------------------------------------------------
+# PatrolRunner
+# ---------------------------------------------------------------------------
 class PatrolRunner:
+    """PatrolRunner 类。"""
     def __init__(self, nav):
+        """初始化实例。
+
+        参数：nav。
+        """
         self.nav, self.lock = nav, nav.lock
         self.inspections = None
         self.active = False
@@ -38,6 +51,10 @@ class PatrolRunner:
         self.rotate_target = None
 
     def camera_ready(self):
+        """「camera_ready」的实现。
+
+        返回：计算结果。
+        """
         if self.inspections is None:
             return False
         with self.inspections.lock:
@@ -48,6 +65,10 @@ class PatrolRunner:
                 and 0 <= now-health.get('last_detection', 0) < 18)
 
     def snapshot(self):
+        """返回当前状态的只读快照。
+
+        返回：计算结果。
+        """
         with self.lock:
             p = self.inspections.progress(self.inspection_id) if self.inspection_id else {}
             blocked = None
@@ -69,6 +90,10 @@ class PatrolRunner:
         # 2026-10-26: detecting/reporting 期间**不查心跳** —— VLM 推理会占住
         # 进程 7~10 秒，心跳必然被挤掉；这两个阶段车已停稳，armed/localized
         # 仍然每拍校验，安全边界不变。
+        """门控检查。
+
+        参数：now。
+        """
         if self.status not in ('detecting', 'reporting'):
             if self.last_client is None or now-self.last_client > 2.0:
                 raise ValueError('操作者心跳超时，巡检停止')
@@ -87,6 +112,10 @@ class PatrolRunner:
             raise ValueError('定位失效，巡检停止')
 
     def start(self, data, sid):
+        """启动。
+
+        参数：data、sid。
+        """
         task = self.nav.patrols.get(data.get('name'))
         with self.lock:
             if self.active or self.accept_future is not None:
@@ -122,16 +151,28 @@ class PatrolRunner:
             self._next(self.epoch)
 
     def heartbeat(self, sid):
+        """「heartbeat」的实现。
+
+        参数：sid。
+        """
         with self.lock:
             if self.active and sid == self.sid:
                 self.last_client = time.monotonic()
 
     def cancel(self, reason='巡检已停止'):
+        """取消当前任务。
+
+        参数：reason。
+        """
         with self.lock:
             if self.active:
                 self._halt(reason, 'cancelled')
 
     def _halt(self, reason, status='failed'):
+        """内部辅助：halt。
+
+        参数：reason、status。
+        """
         self.active = False
         self.epoch += 1
         self.status, self.message = status, reason
@@ -147,6 +188,7 @@ class PatrolRunner:
                 self.message += '；导航取消请求失败，输出已停用'
         sid = self.inspection_id
         def archive():
+            """「archive」的实现。"""
             try:
                 self.inspections.close_automatic(sid, reason, status)
             except Exception as exc:
@@ -156,6 +198,10 @@ class PatrolRunner:
         self.archive_thread.start()
 
     def _pose_matches(self):
+        """内部辅助：pose_matches。
+
+        返回：计算结果。
+        """
         pose, target = self.nav.last_pose, self.task['waypoints'][self.index]
         if not pose:
             return False
@@ -164,6 +210,11 @@ class PatrolRunner:
         return math.hypot(pose['x']-target['x'], pose['y']-target['y']) <= .25 and abs(angle) <= .9
 
     def _stationary(self, now):
+        """内部辅助：stationary。
+
+        参数：now。
+        返回：计算结果。
+        """
         with self.nav.node._lock:
             odom = dict(self.nav.node._odometry or {})
             received = self.nav.node._last_odom_t
@@ -218,6 +269,10 @@ class PatrolRunner:
         return True
 
     def tick(self):
+        """执行一次主循环：刷新状态、检查门控并下发输出。
+
+        返回：计算结果。
+        """
         with self.lock:
             if not self.active:
                 return
@@ -412,6 +467,10 @@ class PatrolRunner:
 
     def _next(self, epoch):
         # All callers hold nav.lock through dispatch, serializing cancellation.
+        """内部辅助：next。
+
+        参数：epoch。
+        """
         if not self.active or epoch != self.epoch:
             return
         if self.index >= self.total:
@@ -454,9 +513,18 @@ class PatrolRunner:
             self._halt('下发点位失败：'+str(exc))
 
     def _current(self, token):
+        """内部辅助：current。
+
+        参数：token。
+        返回：计算结果。
+        """
         return self.active and token == (self.epoch, self.leg) and self.status == 'navigating'
 
     def _accepted(self, future, token):
+        """内部辅助：accepted。
+
+        参数：future、token。
+        """
         with self.lock:
             if self.accept_future is future:
                 self.accept_future = None
@@ -475,6 +543,10 @@ class PatrolRunner:
                     self._halt('导航目标失败：'+str(exc))
 
     def _result(self, future, token):
+        """内部辅助：result。
+
+        参数：future、token。
+        """
         with self.lock:
             if not self._current(token):
                 return

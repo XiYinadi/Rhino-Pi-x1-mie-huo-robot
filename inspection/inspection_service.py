@@ -1,3 +1,8 @@
+# inspection/inspection_service.py
+# 作用：Manual inspection records and evidence-based reports. Never 
+# 模块：巡检记录与报告
+# 文档：docs/代码结构说明.md
+
 """Manual inspection records and evidence-based reports. Never drives hardware."""
 import base64
 import copy
@@ -17,6 +22,11 @@ from local_model import completion, loaded_model
 
 
 def point_in_polygon(x, y, poly):
+    """「point_in_polygon」的实现。
+
+    参数：x、y、poly。
+    返回：计算结果。
+    """
     if not isinstance(poly, list) or len(poly) < 3:
         return False
     inside = False
@@ -31,6 +41,11 @@ def point_in_polygon(x, y, poly):
 
 
 def load_map_regions(inspections_root, map_name):
+    """加载 map regions。
+
+    参数：inspections_root、map_name。
+    返回：计算结果。
+    """
     if not map_name:
         return []
     path = Path(inspections_root).parent / 'maps' / map_name / 'regions.json'
@@ -43,10 +58,18 @@ def load_map_regions(inspections_root, map_name):
 
 
 def timestamp():
+    """「timestamp」的实现。
+
+    返回：计算结果。
+    """
     return datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8))).isoformat(timespec='seconds')
 
 
 def atomic_json(path, value):
+    """「atomic_json」的实现。
+
+    参数：path、value。
+    """
     temporary=path.with_suffix('.tmp')
     with open(temporary,'w',encoding='utf-8') as f:
         json.dump(value,f,ensure_ascii=False,indent=2,allow_nan=False)
@@ -55,6 +78,11 @@ def atomic_json(path, value):
 
 
 def statistics(session):
+    """「statistics」的实现。
+
+    参数：session。
+    返回：计算结果。
+    """
     final={record['step']:record for record in session['records'] if record['status'] in ('ok','skipped')}
     ok=[r for r in final.values() if r['status']=='ok']
     flagged=[r for r in ok if r['verdict']=='suspected']
@@ -70,6 +98,11 @@ def statistics(session):
 
 
 def classify(result):
+    """「classify」的实现。
+
+    参数：result。
+    返回：计算结果。
+    """
     if result['confidence'] < result.get('conf_thresh',.5):return 'uncertain'
     # A contradictory explanation must not be presented as a clean inspection.
     clauses=re.split(r'[，,。；;]|但是|但',str(result.get('reason','')))
@@ -81,6 +114,11 @@ def classify(result):
 
 
 def fresh_sample(after, timeout=35):
+    """「fresh_sample」的实现。
+
+    参数：after、timeout。
+    返回：计算结果。
+    """
     deadline=time.monotonic()+timeout
     while time.monotonic()<deadline:
         try:
@@ -96,6 +134,11 @@ def fresh_sample(after, timeout=35):
 
 
 def summarize(session, directory):
+    """汇总。
+
+    参数：session、directory。
+    返回：计算结果。
+    """
     counts=statistics(session)
     evidence=[r for r in session['records'] if r['status']=='ok']+[dict(a,label='途中异常告警') for a in session.get('alerts',[]) if a.get('image')]
     if not evidence:
@@ -138,9 +181,17 @@ def summarize(session, directory):
     return dict(model=model,summary=summary,recommendations=recommendations,review_note=review_note,generated_at=timestamp(),source_record_ids=[r['id'] for r in priority])
 
 
+# ---------------------------------------------------------------------------
+# InspectionService
+# ---------------------------------------------------------------------------
 class InspectionService:
+    """InspectionService 类。"""
     def __init__(self, root, task_list=lambda:[], task_get=None, pose=lambda:None,
                  sample=fresh_sample, analyze=summarize):
+        """初始化实例。
+
+        参数：root、task_list、task_get、pose、sample、analyze。
+        """
         self.root=Path(root);self.root.mkdir(parents=True,exist_ok=True)
         self.task_list,self.task_get,self.pose=task_list,task_get,pose
         self.sample,self.analyze=sample,analyze
@@ -173,23 +224,43 @@ class InspectionService:
 
     @staticmethod
     def check_id(value):
+        """检查 id。
+
+        参数：value。
+        返回：计算结果。
+        """
         if not isinstance(value,str) or not re.fullmatch(r'[0-9a-f]{32}',value):
             raise ValueError('巡检记录编号无效')
         return value
 
     def directory(self, sid):
+        """「directory」的实现。
+
+        参数：sid。
+        返回：计算结果。
+        """
         return self.root/self.check_id(sid)
 
     def persist(self,s):
+        """「persist」的实现。
+
+        参数：s。
+        """
         s['stats']=statistics(s)
         atomic_json(self.directory(s['id'])/'session.json',s)
 
     def get(self,sid):
+        """读取。
+
+        参数：sid。
+        返回：计算结果。
+        """
         self.check_id(sid)
         if sid not in self.sessions:raise ValueError('巡检记录不存在')
         return self.sessions[sid]
 
     def health_loop(self):
+        """「health_loop」的实现。"""
         while True:
             try:
                 name=loaded_model()
@@ -206,6 +277,10 @@ class InspectionService:
             time.sleep(10)
 
     def state(self):
+        """「state」的实现。
+
+        返回：计算结果。
+        """
         with self.lock:
             selected=self.sessions.get(self.current)
             current=copy.deepcopy(dict(selected,records=selected['records'][-12:])) if selected else None
@@ -215,6 +290,11 @@ class InspectionService:
             return dict(current=current,history=history,tasks=self.task_list(),model=self.model_status)
 
     def start(self,data,mode='manual',task_snapshot=None):
+        """启动。
+
+        参数：data、mode、task_snapshot。
+        返回：计算结果。
+        """
         if not isinstance(data,dict):raise ValueError('巡检请求格式无效')
         with self.lock:
             if any(s['status'] in ('running','sampling','reporting','storage_error') for s in self.sessions.values()):
@@ -236,6 +316,10 @@ class InspectionService:
             return copy.deepcopy(s)
 
     def attach_alert(self,sid,alert):
+        """附加 alert。
+
+        参数：sid、alert。
+        """
         with self.lock:
             s=self.get(sid);saved=copy.deepcopy(alert)
             if alert.get('image'):
@@ -246,12 +330,21 @@ class InspectionService:
             self.persist(s)
 
     def progress(self, sid):
+        """「progress」的实现。
+
+        参数：sid。
+        返回：计算结果。
+        """
         with self.lock:
             s=self.get(sid)
             return dict(status=s['status'], next_step=s['next_step'], report_status=s.get('report_status'),
                         record=copy.deepcopy(s['records'][-1]) if s['records'] else None)
 
     def close_automatic(self, sid, reason, outcome):
+        """关闭 automatic。
+
+        参数：sid、reason、outcome。
+        """
         with self.lock:
             s=self.get(sid)
             if s['mode'] != 'automatic':raise ValueError('只能关闭自动巡检记录')
@@ -266,6 +359,11 @@ class InspectionService:
             self.finish(sid)
 
     def record(self,sid,skip=False,automatic=False,context=None):
+        """记录。
+
+        参数：sid、skip、automatic、context。
+        返回：计算结果。
+        """
         with self.lock:
             s=self.get(sid)
             if s['mode']=='automatic' and not automatic:raise ValueError('自动巡检的检测由到达事件触发；请在驾驶页停止任务')
@@ -287,6 +385,7 @@ class InspectionService:
             s['status']='sampling';s['message']='正在等待本地模型完成到点后的新一帧检测…';self.persist(s)
             after=time.time()
         def worker():
+            """「worker」的实现。"""
             try:
                 result=self.sample(after)
                 if type(result.get('fire')) is not bool or type(result.get('confidence')) not in (int,float):
@@ -333,6 +432,10 @@ class InspectionService:
         return record['id']
 
     def finish(self,sid,retry=False):
+        """收尾。
+
+        参数：sid、retry。
+        """
         with self.lock:
             s=self.get(sid)
             if s['status'] not in (('completed',) if retry else ('running',)):
@@ -344,6 +447,7 @@ class InspectionService:
             s['ended_at']=s['ended_at'] or timestamp();s['stats']=statistics(s)
             self.persist(s);snapshot=copy.deepcopy(s)
         def worker():
+            """「worker」的实现。"""
             try:
                 analysis=self.analyze(snapshot,self.directory(sid))
                 with self.lock:
@@ -357,6 +461,11 @@ class InspectionService:
 
 
 def register_inspection(app, service, webroot):
+    """「register_inspection」的实现。
+
+    参数：app、service、webroot。
+    返回：计算结果。
+    """
     bp=Blueprint('inspection',__name__)
     @bp.errorhandler(ValueError)
     def bad_input(e):return jsonify(error=str(e)),400
@@ -364,12 +473,21 @@ def register_inspection(app, service, webroot):
     def page():return send_file(webroot/'inspection.html')
     @bp.get('/inspection/assets/<name>')
     def assets(name):
+        """「assets」的实现。
+
+        参数：name。
+        返回：计算结果。
+        """
         if name not in ('inspection.js','inspection.css'):return '',404
         return send_file(webroot/name)
     @bp.get('/api/inspection/state')
     def state():return jsonify(service.state())
     @bp.get('/api/inspection/camera')
     def camera():
+        """「camera」的实现。
+
+        返回：计算结果。
+        """
         try:
             with urllib.request.urlopen('http://127.0.0.1:5812/raw.jpg',timeout=3) as response:image=response.read(3_000_000)
             return Response(image,mimetype='image/jpeg',headers={'Cache-Control':'no-store'})
@@ -379,6 +497,11 @@ def register_inspection(app, service, webroot):
     def start():return jsonify(service.start(request.get_json() or {}))
     @bp.post('/api/inspection/<sid>/<action>')
     def control(sid,action):
+        """「control」的实现。
+
+        参数：sid、action。
+        返回：计算结果。
+        """
         if service.get(sid)['mode']=='automatic' and action in ('sample','skip','finish'):
             raise ValueError('自动任务请在驾驶页停止；停止后会保留证据并生成报告')
         if action=='sample':service.record(sid)
@@ -388,10 +511,20 @@ def register_inspection(app, service, webroot):
         return jsonify(ok=True)
     @bp.get('/api/inspection/<sid>')
     def detail(sid):
+        """「detail」的实现。
+
+        参数：sid。
+        返回：计算结果。
+        """
         with service.lock:
             s=copy.deepcopy(service.get(sid));s['stats']=statistics(s);return jsonify(s)
     @bp.get('/inspection/evidence/<sid>/<image>')
     def evidence(sid,image):
+        """「evidence」的实现。
+
+        参数：sid、image。
+        返回：计算结果。
+        """
         service.check_id(sid)
         if not re.fullmatch(r'[0-9a-f]{32}\.jpg',image):raise ValueError('图片编号无效')
         with service.lock:
@@ -400,6 +533,11 @@ def register_inspection(app, service, webroot):
         return send_file(service.directory(sid)/image,mimetype='image/jpeg')
     @bp.get('/inspection/reports/<sid>')
     def report(sid):
+        """生成报告。
+
+        参数：sid。
+        返回：计算结果。
+        """
         with service.lock:
             s=copy.deepcopy(service.get(sid));s['stats']=statistics(s)
         if s['status']!='completed':raise ValueError('请先结束巡检并等待报告生成')
@@ -409,6 +547,11 @@ def register_inspection(app, service, webroot):
         by_step={r.get('step'):r for r in s.get('records',[])}
         regions=load_map_regions(service.root, task.get('map'))
         def region_of(point):
+            """「region_of」的实现。
+
+            参数：point。
+            返回：计算结果。
+            """
             if not isinstance(point, dict):
                 return None
             x, y = point.get('x'), point.get('y')
@@ -449,6 +592,11 @@ def register_inspection(app, service, webroot):
                                       s=s,points=points,duration=duration,region_rows=region_rows)
     @bp.get('/inspection/reports/<sid>/data')
     def download(sid):
+        """「download」的实现。
+
+        参数：sid。
+        返回：计算结果。
+        """
         service.get(sid);service.check_id(sid)
         return send_file(service.directory(sid)/'session.json',as_attachment=True,download_name='inspection-'+sid[:8]+'.json')
     app.register_blueprint(bp)

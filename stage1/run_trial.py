@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# stage1/run_trial.py
+# 作用：Explicit supervised ROS motion trial. Ground truth must be e
+# 模块：阶段一验收
+# 文档：docs/代码结构说明.md
+
 """Explicit supervised ROS motion trial. Ground truth must be entered separately."""
 import argparse
 import json
@@ -19,6 +24,7 @@ from core import relative, wrap
 
 
 def main():
+    """命令行入口。"""
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('kind',choices=['straight_probe','spin_probe','one_meter','ninety_deg','watchdog','zero_watchdog'])
     parser.add_argument('--output',required=True)
@@ -32,6 +38,10 @@ def main():
     samples=[];origin=None;end=None;reason='not started';armed=False;origin_stamp=None
     recording=dict(scans=[],imu=[],odom=[])
     def odom(msg):
+        """「odom」的实现。
+
+        参数：msg。
+        """
         q=msg.pose.pose.orientation;p=msg.pose.pose.position
         pose=(p.x,p.y,math.atan2(2*(q.w*q.z+q.x*q.y),1-2*(q.y*q.y+q.z*q.z)))
         stamp=msg.header.stamp.sec+msg.header.stamp.nanosec*1e-9
@@ -43,11 +53,19 @@ def main():
     node.create_subscription(Odometry,'/odom',odom,qos_profile_sensor_data)
     node.create_subscription(String,'/stage1/status',status,10)
     def scan(msg):
+        """「scan」的实现。
+
+        参数：msg。
+        """
         recording['scans'].append(dict(stamp=msg.header.stamp.sec+msg.header.stamp.nanosec*1e-9,
             frame=msg.header.frame_id,angle_min=msg.angle_min,angle_increment=msg.angle_increment,
             range_min=msg.range_min,range_max=msg.range_max,scan_time=msg.scan_time,time_increment=msg.time_increment,
             ranges=[float(v) if math.isfinite(v) else None for v in msg.ranges]))
     def imu(msg):
+        """「imu」的实现。
+
+        参数：msg。
+        """
         a,w=msg.linear_acceleration,msg.angular_velocity
         values=[a.x,a.y,a.z,w.x,w.y,w.z]
         if all(math.isfinite(v) for v in values):
@@ -56,11 +74,19 @@ def main():
         node.create_subscription(LaserScan,'/scan',scan,qos_profile_sensor_data)
         node.create_subscription(Imu,'/imu/data_raw',imu,qos_profile_sensor_data)
     def enable(on):
+        """「enable」的实现。
+
+        参数：on。
+        """
         req=SetBool.Request();req.data=on
         f=client.call_async(req);rclpy.spin_until_future_complete(node,f,timeout_sec=3)
         if not f.done() or f.result() is None:raise RuntimeError('enable service timeout')
         if not f.result().success:raise RuntimeError(f.result().message)
     def command(v=0.,w=0.):
+        """「command」的实现。
+
+        参数：v、w。
+        """
         msg=Twist();msg.linear.x=v;msg.angular.z=w;pub.publish(msg)
     def interrupted(*unused):raise KeyboardInterrupt
     signal.signal(signal.SIGTERM,interrupted)

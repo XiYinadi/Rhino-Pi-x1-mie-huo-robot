@@ -1,9 +1,16 @@
+# navigation/localization_settle.py
+# 作用：Bound initial localization updates before allowing a path or
+# 模块：导航、定位、巡检执行
+# 文档：docs/代码结构说明.md
+
 """Bound initial localization updates before allowing a path or motion."""
 import math
 
 
 class StaticPoseSettle:
+    """StaticPoseSettle 类。"""
     def __init__(self):
+        """初始化实例。"""
         self.active = False
         self.ready = True
         self.failed = False
@@ -12,6 +19,10 @@ class StaticPoseSettle:
         self.after_stamp = 0.0
 
     def start(self, after_stamp=0.0):
+        """启动。
+
+        参数：after_stamp。
+        """
         self.__init__()
         self.active = True
         self.ready = False
@@ -19,9 +30,17 @@ class StaticPoseSettle:
 
     @property
     def needs_update(self):
+        """「needs_update」的实现。
+
+        返回：计算结果。
+        """
         return self.active and not self.ready and not self.failed
 
     def observe(self, x, y, angle, stamp):
+        """「observe」的实现。
+
+        参数：x、y、angle、stamp。
+        """
         if not self.needs_update:
             return
         if not all(math.isfinite(v) for v in (x, y, angle, stamp)):
@@ -41,6 +60,10 @@ class StaticPoseSettle:
         self.failed = self.samples >= 16 and not self.ready
 
     def message(self):
+        """「message」的实现。
+
+        返回：计算结果。
+        """
         if self.failed:
             return '静止定位仍在变化，请核对实际位置和车头后重新设置'
         return f'等待静止定位稳定（已更新{self.samples}次，连续稳定{self.stable}/3）'

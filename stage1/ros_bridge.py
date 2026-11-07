@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# stage1/ros_bridge.py
+# 作用：Supervised diagnostic ROS /cmd_vel -> existing web owner gat
+# 模块：阶段一验收
+# 文档：docs/代码结构说明.md
+
 """Supervised diagnostic ROS /cmd_vel -> existing web owner gate -> PWM.
 
 Starts DISABLED. /stage1/enable SetBool is an explicit per-run lease. No GPIO,
@@ -33,8 +38,16 @@ from std_srvs.srv import SetBool
 from core import Feedback, relative
 
 
+# ---------------------------------------------------------------------------
+# Bridge
+# ---------------------------------------------------------------------------
 class Bridge(Node):
+    """Bridge 类。"""
     def __init__(self,args):
+        """初始化实例。
+
+        参数：args。
+        """
         super().__init__('stage1_ros_bridge')
         p=yaml.safe_load(Path(args.motor_params).read_text())['motor_driver']['ros__parameters']
         self.diff=args.diff
@@ -73,9 +86,17 @@ class Bridge(Node):
         self.thread=threading.Thread(target=self.loop,daemon=True);self.thread.start()
 
     def record(self,event,**data):
+        """记录。
+
+        参数：event。
+        """
         self.journal.write(json.dumps(dict(time=time.time(),event=event,**data),allow_nan=False)+'\n')
 
     def motor_state(self,data):
+        """「motor_state」的实现。
+
+        参数：data。
+        """
         with self.lock:
             self.motor=data
             if self.enabled and (not data.get('armed') or data.get('driver')!=self.sid):
@@ -83,11 +104,16 @@ class Bridge(Node):
                 self.record('halt',reason=self.reason)
 
     def disconnected(self):
+        """「disconnected」的实现。"""
         with self.lock:
             self.enabled=False;self.reason='web connection lost';self.core.reset()
             self.record('halt',reason=self.reason)
 
     def on_odom(self,msg):
+        """处理 odom。
+
+        参数：msg。
+        """
         q=msg.pose.pose.orientation;p=msg.pose.pose.position
         pose=(p.x,p.y,math.atan2(2*(q.w*q.z+q.x*q.y),1-2*(q.y*q.y+q.z*q.z)))
         vel=(msg.twist.twist.linear.x,msg.twist.twist.angular.z)
@@ -97,6 +123,10 @@ class Bridge(Node):
         with self.lock:self.pose=pose;self.velocity=vel;self.ages['odom']=time.monotonic()
 
     def on_scan(self,msg):
+        """处理 scan。
+
+        参数：msg。
+        """
         if msg.header.frame_id!='laser':return
         if not self.stamp_fresh(msg.header.stamp):return
         all_ranges=[];front=[]
@@ -113,6 +143,10 @@ class Bridge(Node):
             self.ages['scan']=time.monotonic()
 
     def on_imu(self,msg):
+        """处理 imu。
+
+        参数：msg。
+        """
         if self.stamp_fresh(msg.header.stamp):
             with self.lock:
                 accel=msg.linear_acceleration
@@ -132,14 +166,27 @@ class Bridge(Node):
                 self.ages['imu']=time.monotonic()
 
     def stamp_fresh(self,stamp):
+        """「stamp_fresh」的实现。
+
+        参数：stamp。
+        返回：计算结果。
+        """
         return -.05 <= time.time()-stamp.sec-stamp.nanosec*1e-9 < .4
 
     def command_publishers_ok(self):
+        """「command_publishers_ok」的实现。
+
+        返回：计算结果。
+        """
         writers=[p for p in self.get_publishers_info_by_topic('/cmd_vel') if p.node_name!='slam_viz_node']
         return (len(writers)==1 and writers[0].node_name=='stage1_trial'
                 and 0<writers[0].qos_profile.lifespan.nanoseconds<=200000000)
 
     def on_command(self,msg):
+        """处理 command。
+
+        参数：msg。
+        """
         with self.lock:
             if not self.enabled:return
             # This board's Humble callback API has no MessageInfo argument.
@@ -153,11 +200,21 @@ class Bridge(Node):
             self.command=(v,w);self.last_command=time.monotonic()
 
     def sensor_error(self,now):
+        """「sensor_error」的实现。
+
+        参数：now。
+        返回：计算结果。
+        """
         for key in ('odom','scan','imu'):
             if not 0<=now-self.ages.get(key,0)<.40:return key+' stale'
         return None
 
     def enable(self,req,res):
+        """「enable」的实现。
+
+        参数：req、res。
+        返回：计算结果。
+        """
         if not req.data:
             with self.lock:self.halt('explicit disable')
             res.success=True;res.message=self.reason;return res
@@ -193,12 +250,17 @@ class Bridge(Node):
             res.success=True;res.message='enabled; fresh commands required within 250ms';return res
 
     def halt(self,reason):
+        """「halt」的实现。
+
+        参数：reason。
+        """
         self.enabled=False;self.reason=reason;self.core.reset();self.command=(0.,0.)
         if self.sio.connected and self.motor.get('driver')==self.sid:
             self.sio.emit('motor_control',dict(action='arm',armed=False))
         self.record('halt',reason=reason)
 
     def loop(self):
+        """循环。"""
         previous=time.monotonic();sample=0.
         while not self.stop_event.wait(.02):
             try:
@@ -232,6 +294,7 @@ class Bridge(Node):
                 with self.lock:self.halt('bridge error: '+str(e))
 
     def publish_status(self):
+        """发布 status。"""
         policy=self.command_publishers_ok()
         with self.lock:
             if self.enabled and not policy:self.halt('unbounded or competing cmd_vel publisher')
@@ -243,6 +306,7 @@ class Bridge(Node):
 
 
 def main():
+    """命令行入口。"""
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--motor-params',required=True);p.add_argument('--diff',action='store_true');p.add_argument('--journal',required=True)
     args=p.parse_args();rclpy.init();node=Bridge(args)

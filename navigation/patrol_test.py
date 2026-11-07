@@ -1,3 +1,8 @@
+# navigation/patrol_test.py
+# 作用：导航、定位、巡检执行
+# 模块：导航、定位、巡检执行
+# 文档：docs/代码结构说明.md
+
 import copy
 import math
 import tempfile
@@ -8,27 +13,40 @@ from patrol_preview import PatrolPreview
 
 
 def task():
+    """「task」的实现。
+
+    返回：计算结果。
+    """
     return dict(name='round_a', map='room', cycles=2, revision=0,
         waypoints=[dict(x=1,y=2,yaw=0,dwell_s=5),dict(x=3,y=4,yaw=1,dwell_s=10)])
 
 
 class Tasks(unittest.TestCase):
+    """Tasks 类。"""
     def setUp(self):
+        """「setUp」的实现。"""
         self.temp=tempfile.TemporaryDirectory()
         class Maps:
+            """Maps 类。"""
             def path(self, name):
+                """「path」的实现。
+
+                参数：name。
+                """
                 if name!='room': raise ValueError('missing map')
         self.store=PatrolStore(self.temp.name,Maps())
 
     def tearDown(self): self.temp.cleanup()
 
     def test_roundtrip_survives_store_restart(self):
+        """「test_roundtrip_survives_store_restart」的实现。"""
         saved=self.store.save(task())
         again=PatrolStore(self.temp.name,self.store.maps)
         self.assertEqual(again.get('round_a'),saved)
         self.assertEqual(again.list()[0]['points'],2)
 
     def test_stale_client_cannot_overwrite(self):
+        """「test_stale_client_cannot_overwrite」的实现。"""
         original=self.store.save(task())
         client=copy.deepcopy(original);client['cycles']=3
         self.store.save(client)
@@ -36,40 +54,49 @@ class Tasks(unittest.TestCase):
         self.assertEqual(self.store.get('round_a')['cycles'],3)
 
     def test_missing_map_rejected(self):
+        """「test_missing_map_rejected」的实现。"""
         data=task();data['map']='absent'
         with self.assertRaises(ValueError):self.store.save(data)
 
     def test_path_escape_rejected(self):
+        """「test_path_escape_rejected」的实现。"""
         data=task();data['name']='../escape'
         with self.assertRaises(ValueError):self.store.save(data)
 
     def test_empty_and_large_task_rejected(self):
+        """「test_empty_and_large_task_rejected」的实现。"""
         for points in ([],task()['waypoints']*26):
             data=task();data['waypoints']=points
             with self.assertRaises(ValueError):self.store.save(data)
 
     def test_bad_numbers_rejected(self):
+        """「test_bad_numbers_rejected」的实现。"""
         for key,value in [('x',float('nan')),('yaw',float('inf')),('y','1'),('dwell_s',-1),('dwell_s',True)]:
             data=task();data['waypoints'][0][key]=value
             with self.assertRaises(ValueError):validate_task(data)
 
     def test_cycles_are_bounded_integers(self):
+        """「test_cycles_are_bounded_integers」的实现。"""
         for value in (0,101,1.5,True,'2'):
             data=task();data['cycles']=value
             with self.assertRaises(ValueError):validate_task(data)
 
     def test_save_does_not_mutate_draft(self):
+        """「test_save_does_not_mutate_draft」的实现。"""
         data=task();self.store.save(data)
         self.assertEqual(data['revision'],0)
 
 
 class Preview(unittest.TestCase):
+    """Preview 类。"""
     def setUp(self):
+        """「setUp」的实现。"""
         self.preview=PatrolPreview();self.calls=[]
         self.plan=lambda start,target,done:self.calls.append((start,target,done))
         self.origin=dict(x=0,y=0,yaw=0)
 
     def test_segments_include_loop_closure_and_dwell_total(self):
+        """「test_segments_include_loop_closure_and_dwell_total」的实现。"""
         self.preview.start(task(),self.origin,self.plan)
         self.calls[0][2]([[0,0],[1,2]],None)
         self.calls[1][2]([[1,2],[3,4]],None)
@@ -80,11 +107,13 @@ class Preview(unittest.TestCase):
         self.assertEqual(state['planned_stopped_s'],30)
 
     def test_single_cycle_does_not_add_return(self):
+        """「test_single_cycle_does_not_add_return」的实现。"""
         data=task();data['cycles']=1
         self.preview.start(data,self.origin,self.plan)
         self.assertEqual(self.preview.state['total'],2)
 
     def test_failure_never_claims_complete(self):
+        """「test_failure_never_claims_complete」的实现。"""
         self.preview.start(task(),self.origin,self.plan)
         self.calls[0][2]([[0,0],[1,2]],None)
         self.calls[1][2](None,'obstacle')
@@ -93,11 +122,13 @@ class Preview(unittest.TestCase):
         self.assertEqual(len(self.calls),2)
 
     def test_empty_path_is_failure(self):
+        """「test_empty_path_is_failure」的实现。"""
         self.preview.start(task(),self.origin,self.plan)
         self.calls[0][2]([],None)
         self.assertEqual(self.preview.state['status'],'failed')
 
     def test_cancel_ignores_late_result(self):
+        """「test_cancel_ignores_late_result」的实现。"""
         self.preview.start(task(),self.origin,self.plan)
         self.preview.cancel()
         self.calls[0][2]([[0,0],[1,2]],None)
@@ -105,6 +136,7 @@ class Preview(unittest.TestCase):
         self.assertEqual(self.preview.state['status'],'cancelled')
 
     def test_old_task_cannot_pollute_new_task(self):
+        """「test_old_task_cannot_pollute_new_task」的实现。"""
         self.preview.start(task(),self.origin,self.plan)
         old=self.calls[0][2];self.preview.cancel()
         self.preview.start(task(),self.origin,self.plan)

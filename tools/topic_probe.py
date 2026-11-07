@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# tools/topic_probe.py
+# 作用：从话题取一条消息,按字段路径打印(空格分隔);超时打印 TIMEOUT 并以 1 退出。
+# 模块：诊断与测试工具
+# 文档：docs/代码结构说明.md
+
 """从话题取一条消息,按字段路径打印(空格分隔);超时打印 TIMEOUT 并以 1 退出。
 
     python3 topic_probe.py /wheel_speed linear.z angular.x --timeout 6
@@ -15,6 +20,11 @@ import time
 
 
 def _msg_type(topic):
+    """内部辅助：msg_type。
+
+    参数：topic。
+    返回：计算结果。
+    """
     if 'odom' in topic:
         from nav_msgs.msg import Odometry
         return Odometry
@@ -26,6 +36,11 @@ def _msg_type(topic):
 
 
 def main(argv):
+    """命令行入口。
+
+    参数：argv。
+    返回：计算结果。
+    """
     if len(argv) < 2:
         print(__doc__)
         return 2

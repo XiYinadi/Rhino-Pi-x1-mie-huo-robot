@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# slam/laser_odom.py
+# 作用：Laser scan matching odometry — publishes odom->base_footprin
+# 模块：激光与惯性里程计、建图
+# 文档：docs/代码结构说明.md
+
 """Laser scan matching odometry — publishes odom->base_footprint TF.
 
 Uses iterative closest point (ICP) between consecutive laser scans
@@ -82,8 +87,13 @@ def icp_step(source, target, max_dist=1.0):
     return R, t, mean_err
 
 
+# ---------------------------------------------------------------------------
+# LaserOdomNode
+# ---------------------------------------------------------------------------
 class LaserOdomNode(Node):
+    """LaserOdomNode 类。"""
     def __init__(self):
+        """初始化实例。"""
         super().__init__('laser_odom')
 
         self.declare_parameter('odom_frame', 'odom')
@@ -144,6 +154,10 @@ class LaserOdomNode(Node):
         self.odom_pub.publish(odom)
 
     def scan_callback(self, scan_msg):
+        """「scan_callback」的实现。
+
+        参数：scan_msg。
+        """
         self.scan_count += 1
         cur_points = scan_to_points(scan_msg, self.max_range)
 
@@ -215,6 +229,7 @@ class LaserOdomNode(Node):
 
 
 def main():
+    """命令行入口。"""
     rclpy.init()
     node = LaserOdomNode()
     try:

@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# motor/motor_control.py
+# 作用：纯运动控制逻辑 — 无 ROS、无 GPIO,可 headless 单测。
+# 模块：电机/舵机驱动与接线
+# 文档：docs/代码结构说明.md
+
 """纯运动控制逻辑 — 无 ROS、无 GPIO,可 headless 单测。
 
 原定位是「纯数学」,后来把 pwm_proc 的**链路失效判据**(下面的 `Deadman`)也放进
@@ -11,10 +16,17 @@
 """
 
 
+# ---------------------------------------------------------------------------
+# Pid
+# ---------------------------------------------------------------------------
 class Pid:
     """Simple velocity PID with integral limit and feed-forward support."""
 
     def __init__(self, kp, ki, kd, i_limit, out_limit):
+        """初始化实例。
+
+        参数：kp、ki、kd、i_limit、out_limit。
+        """
         self.kp = kp
         self.ki = ki
         self.kd = kd
@@ -25,6 +37,11 @@ class Pid:
         self.last_out = 0.0
 
     def update(self, err, dt):
+        """更新。
+
+        参数：err、dt。
+        返回：计算结果。
+        """
         if dt <= 1e-6:
             return 0.0
         # 条件积分抗饱和:输出已经饱和、且误差还在往同方向推时,不再累积积分。
@@ -45,6 +62,7 @@ class Pid:
         return out
 
     def reset(self):
+        """重置。"""
         self.integral = 0.0
         self.prev_err = 0.0
         self.last_out = 0.0
@@ -146,6 +164,9 @@ def joy_to_channels(l, a, max_lin, max_ang, wheel_base, swap_lr=False):
     return map_channels(v_l / max_lin, v_r / max_lin, swap_lr)
 
 
+# ---------------------------------------------------------------------------
+# Deadman
+# ---------------------------------------------------------------------------
 class Deadman:
     """带滞回的摇杆链路失联判据(纯状态机,时间由调用方传入)。
 
@@ -178,6 +199,10 @@ class Deadman:
     """
 
     def __init__(self, trip_s, dwell_s=None):
+        """初始化实例。
+
+        参数：trip_s、dwell_s。
+        """
         self.trip_s = float(trip_s)
         # 默认 2×trip:不引入第二个魔法数,且顺手给出一条明确语义(见类注释)
         self.dwell_s = float(2.0 * self.trip_s if dwell_s is None else dwell_s)
@@ -201,6 +226,9 @@ class Deadman:
         return self.stale
 
 
+# ---------------------------------------------------------------------------
+# IdlePark
+# ---------------------------------------------------------------------------
 class IdlePark:
     """静止判据:指令长时间停在零点 → 建议 park 舵机(纯状态机,时间由调用方传入)。
 
@@ -225,6 +253,10 @@ class IdlePark:
     """
 
     def __init__(self, hold_s, eps=0.02):
+        """初始化实例。
+
+        参数：hold_s、eps。
+        """
         self.hold_s = float(hold_s)
         self.eps = abs(float(eps))
         self.idle = False            # 上电即非 idle:先按「还在驾驶」对待

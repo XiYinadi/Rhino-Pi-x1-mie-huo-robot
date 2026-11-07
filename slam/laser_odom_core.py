@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# slam/laser_odom_core.py
+# 作用：laser_odom 的**纯函数层** —— 不 import rclpy,因此能 headless 单测。
+# 模块：激光与惯性里程计、建图
+# 文档：docs/代码结构说明.md
+
 """laser_odom 的**纯函数层** —— 不 import rclpy,因此能 headless 单测。
 
 分层理由与 `motor_control.py` / `motor_hw.py` 同一套路（本项目的既定纪律）:

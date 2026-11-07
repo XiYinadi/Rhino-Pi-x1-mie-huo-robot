@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# tools/rotate_test.py
+# 作用：原地旋转固定角度（陀螺闭环）。
+# 模块：诊断与测试工具
+# 文档：docs/代码结构说明.md
+
 """原地旋转固定角度（陀螺闭环）。
 
 用法：
@@ -24,6 +29,7 @@ PWM = ("127.0.0.1", 5813)
 
 
 def main():
+    """命令行入口。"""
     parser = argparse.ArgumentParser()
     parser.add_argument("angle", nargs="?", type=float, default=90.0)
     parser.add_argument("rate", nargs="?", type=float, default=0.14)
@@ -39,6 +45,10 @@ def main():
     state = {"wz": 0.0, "stamp": 0.0}
 
     def on_imu(msg):
+        """处理 imu。
+
+        参数：msg。
+        """
         state["wz"] = float(msg.angular_velocity.z)
         state["stamp"] = time.monotonic()
 
@@ -46,6 +56,10 @@ def main():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     def send(rot, armed=True):
+        """发送。
+
+        参数：rot、armed。
+        """
         sock.sendto(json.dumps({"l": 0.0, "a": 0.0, "rot": rot, "armed": armed}).encode(), PWM)
 
     end = time.time() + 5

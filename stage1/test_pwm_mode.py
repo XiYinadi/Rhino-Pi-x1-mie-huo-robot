@@ -1,3 +1,8 @@
+# stage1/test_pwm_mode.py
+# 作用：Exercise actual PWM tick with fake I/O: diagnostic steering 
+# 模块：阶段一验收
+# 文档：docs/代码结构说明.md
+
 """Exercise actual PWM tick with fake I/O: diagnostic steering + safety gates."""
 import ast
 from pathlib import Path
@@ -12,7 +17,9 @@ from motor_control import Deadman, IdlePark, joy_to_channels
 
 
 class PwmModeTests(unittest.TestCase):
+    """PwmModeTests 类。"""
     def test_center_hold_and_shared_disarm(self):
+        """「test_center_hold_and_shared_disarm」的实现。"""
         source=SOURCE
         tree=ast.parse(source.read_text(encoding='utf-8'))
         cls=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='PwmProc')

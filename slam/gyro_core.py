@@ -1,3 +1,8 @@
+# slam/gyro_core.py
+# 作用：Timestamped gyro integration and gyro-constrained 2-D laser 
+# 模块：激光与惯性里程计、建图
+# 文档：docs/代码结构说明.md
+
 """Timestamped gyro integration and gyro-constrained 2-D laser registration."""
 import math
 from collections import deque
@@ -23,12 +28,24 @@ def calibrate(samples):
     return gyro.mean(axis=0), gravity / np.linalg.norm(gravity)
 
 
+# ---------------------------------------------------------------------------
+# GyroHistory
+# ---------------------------------------------------------------------------
 class GyroHistory:
+    """GyroHistory 类。"""
     def __init__(self, max_gap=.15):
+        """初始化实例。
+
+        参数：max_gap。
+        """
         self.samples = deque(maxlen=2000)
         self.max_gap = max_gap
 
     def add(self, stamp, rate):
+        """添加。
+
+        参数：stamp、rate。
+        """
         if not math.isfinite(stamp) or not math.isfinite(rate):
             return
         if self.samples and stamp <= self.samples[-1][0]:
@@ -55,18 +72,30 @@ class GyroHistory:
         return total
 
 
+# ---------------------------------------------------------------------------
+# MotionDiscontinuity
+# ---------------------------------------------------------------------------
 class MotionDiscontinuity(ValueError):
     """An untrusted scan step requires a stationary restart, not interpolation."""
 
 
+# ---------------------------------------------------------------------------
+# MotionRejected
+# ---------------------------------------------------------------------------
 class MotionRejected(ValueError):
     """No output for this scan; recheck against the unchanged trusted reference."""
 
 
+# ---------------------------------------------------------------------------
+# MotionReanchor
+# ---------------------------------------------------------------------------
 class MotionReanchor(ValueError):
     """Recheck expired; re-anchor to the current scan and keep publishing."""
 
 
+# ---------------------------------------------------------------------------
+# KeyframeMotion
+# ---------------------------------------------------------------------------
 class KeyframeMotion:
     """Pose relative to a retained scan, not a sum of every noisy scan pair.
 
@@ -77,6 +106,10 @@ class KeyframeMotion:
     def __init__(self, stamp, pose=(0.,0.,0.), max_speed_mps=1.5, noise_allowance_m=.01):
         # This is a supported estimation envelope, not a measured motor speed.
         # It exceeds the supervised 0.08m/s trials and the 0.10m/s Nav2 cap.
+        """初始化实例。
+
+        参数：stamp、pose、max_speed_mps、noise_allowance_m。
+        """
         if any(isinstance(v,bool) or not math.isfinite(v) or v<=0 for v in (max_speed_mps,noise_allowance_m)):
             raise ValueError('Invalid laser motion envelope')
         self.max_speed_mps=max_speed_mps
@@ -88,6 +121,11 @@ class KeyframeMotion:
         self.last_stamp=self.reference_stamp=float(stamp)
 
     def update(self, dx, dy, theta, stamp):
+        """更新。
+
+        参数：dx、dy、theta、stamp。
+        返回：计算结果。
+        """
         if self.fault is not None:
             raise MotionDiscontinuity(self.fault)
         if not all(math.isfinite(v) for v in (dx,dy,theta,stamp)) or stamp<=self.last_stamp:

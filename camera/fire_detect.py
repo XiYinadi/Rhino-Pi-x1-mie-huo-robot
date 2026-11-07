@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# camera/fire_detect.py
+# 作用：fire_detect.py — 犀牛派 火焰/烟雾检测(本地 VLM 直判,独立进程)
+# 模块：相机取流与火情检测
+# 文档：docs/代码结构说明.md
+
 """
 fire_detect.py — 犀牛派 火焰/烟雾检测(本地 VLM 直判,独立进程)
 ================================================================
@@ -92,6 +97,7 @@ _verdict = {                  # 最近一次 VLM 判定
 
 # ── 相机捕获线程 ──────────────────────────────────────────────────
 def capture_loop():
+    """「capture_loop」的实现。"""
     global _latest_bgr, _latest_bgr_t, _cap_count, _capture_ok, _capture_fps, _capture_config
     cap = None
     measured_n, measured_at = 0, time.monotonic()
@@ -207,6 +213,10 @@ def _vlm_ask(bgr):
 
 
 def _save_event(bgr, conf, reason):
+    """保存 event。
+
+    参数：bgr、conf、reason。
+    """
     try:
         d = os.path.expanduser("~/fire_events")
         os.makedirs(d, exist_ok=True)
@@ -355,13 +365,22 @@ def _raw_snapshot():
         return _last_raw_snapshot
 
 
+# ---------------------------------------------------------------------------
+# Handler
+# ---------------------------------------------------------------------------
 class Handler(BaseHTTPRequestHandler):
+    """Handler 类。"""
     server_version = "fire_detect/1.0"
 
     def log_message(self, fmt, *args):
+        """记录日志 message。
+
+        参数：fmt。
+        """
         pass
 
     def do_GET(self):
+        """「do_GET」的实现。"""
         path = self.path.split("?")[0]
         if path in ("/", "/index.html"):
             self._json(self._status())
@@ -381,6 +400,10 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(404)
 
     def _status(self):
+        """内部辅助：status。
+
+        返回：计算结果。
+        """
         with _lock:
             v = dict(_verdict)
         return {
@@ -401,6 +424,10 @@ class Handler(BaseHTTPRequestHandler):
         }
 
     def _json(self, obj):
+        """内部辅助：json。
+
+        参数：obj。
+        """
         body = json.dumps(obj).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -409,6 +436,10 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _jpeg(self, data, snapshot=None):
+        """内部辅助：jpeg。
+
+        参数：data、snapshot。
+        """
         if data is None:
             self.send_error(503, "no frame yet")
             return
@@ -431,6 +462,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def _mjpeg(self):
+        """内部辅助：mjpeg。"""
         self.send_response(200)
         self.send_header("Content-Type",
                          "multipart/x-mixed-replace; boundary=frame")
@@ -460,6 +492,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
+    """命令行入口。"""
     threading.Thread(target=capture_loop, daemon=True).start()
     threading.Thread(target=judge_loop, daemon=True).start()
     srv = ThreadingHTTPServer((HOST, PORT), Handler)

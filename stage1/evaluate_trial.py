@@ -1,3 +1,8 @@
+# stage1/evaluate_trial.py
+# 作用：Attach independent physical measurements to a trial. Never u
+# 模块：阶段一验收
+# 文档：docs/代码结构说明.md
+
 """Attach independent physical measurements to a trial. Never use odom as truth."""
 import argparse
 import json
@@ -5,6 +10,7 @@ from pathlib import Path
 
 
 def main():
+    """命令行入口。"""
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('trial');p.add_argument('--distance-m',type=float,required=True)
     p.add_argument('--yaw-deg',type=float,required=True)

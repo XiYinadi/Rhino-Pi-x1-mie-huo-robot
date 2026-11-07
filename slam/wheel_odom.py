@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# slam/wheel_odom.py
+# 作用：Input-only wheel odometry. Never requests motor GPIO or subs
+# 模块：激光与惯性里程计、建图
+# 文档：docs/代码结构说明.md
+
 """Input-only wheel odometry. Never requests motor GPIO or subscribes to drive.
 
 Native sampler owns ONLY GPIO 0/12/5/1; current pwm_proc remains motor owner.
@@ -20,12 +25,22 @@ from wheel_odom_core import integrate, sample_fault
 
 
 def read_config(path, diagnostic=False):
+    """读取 config。
+
+    参数：path、diagnostic。
+    返回：计算结果。
+    """
     import yaml
     p = yaml.safe_load(Path(path).read_text())
     return validate_config(p, diagnostic)
 
 
 def validate_config(p, diagnostic=False):
+    """校验 config。
+
+    参数：p、diagnostic。
+    返回：计算结果。
+    """
     if not isinstance(p, dict):
         raise ValueError('wheel odometry configuration must be a mapping')
     if not math.isfinite(float(p['wheel_track_m'])) or p['wheel_track_m'] <= 0:
@@ -51,6 +66,7 @@ def validate_config(p, diagnostic=False):
 
 
 def main():
+    """命令行入口。"""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--params', default=str(Path(__file__).with_suffix('.yaml')))
     parser.add_argument('--sampler', help='Override the configured native sampler executable')
@@ -96,6 +112,7 @@ def main():
     pending = queue.Queue(maxsize=100)
     overflow = threading.Event()
     def read():
+        """读取。"""
         try:
             for line in child.stdout:
                 try:

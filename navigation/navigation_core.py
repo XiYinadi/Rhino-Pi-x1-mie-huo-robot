@@ -1,3 +1,8 @@
+# navigation/navigation_core.py
+# 作用：Pure motion conversion and freshness gates for a servo-steer
+# 模块：导航、定位、巡检执行
+# 文档：docs/代码结构说明.md
+
 """Pure motion conversion and freshness gates for a servo-steered chassis."""
 import math
 
@@ -17,6 +22,10 @@ def footprint_points(config):
 
 
 def validate_calibration(config):
+    """校验 calibration。
+
+    参数：config。
+    """
     if config.get('calibrated') is not True:
         raise ValueError('底盘尺寸、转角与速度尚未实测标定；当前只允许定位和路径预览')
     for key in ('wheelbase_m', 'length_m', 'width_m', 'max_steering_rad',
@@ -35,6 +44,11 @@ def validate_calibration(config):
 
 
 def twist_to_joystick(v, omega, config):
+    """「twist_to_joystick」的实现。
+
+    参数：v、omega、config。
+    返回：计算结果。
+    """
     validate_calibration(config)
     if not all(math.isfinite(x) for x in (v, omega)):
         raise ValueError('导航速度不是有限数值')
@@ -54,4 +68,9 @@ def twist_to_joystick(v, omega, config):
 
 
 def fresh(now, then, timeout):
+    """「fresh」的实现。
+
+    参数：now、then、timeout。
+    返回：计算结果。
+    """
     return then is not None and 0 <= now-then < timeout

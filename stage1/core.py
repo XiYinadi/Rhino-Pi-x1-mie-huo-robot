@@ -1,12 +1,27 @@
+# stage1/core.py
+# 作用：Bounded ROS velocity feedback and acceptance geometry. No RO
+# 模块：阶段一验收
+# 文档：docs/代码结构说明.md
+
 """Bounded ROS velocity feedback and acceptance geometry. No ROS/GPIO imports."""
 import math
 
 
 def wrap(a):
+    """「wrap」的实现。
+
+    参数：a。
+    返回：计算结果。
+    """
     return math.atan2(math.sin(a), math.cos(a))
 
 
 def relative(start, end):
+    """「relative」的实现。
+
+    参数：start、end。
+    返回：计算结果。
+    """
     dx, dy = end[0]-start[0], end[1]-start[1]
     c, s = math.cos(start[2]), math.sin(start[2])
     return dict(forward_m=c*dx+s*dy, lateral_m=-s*dx+c*dy,
@@ -20,15 +35,25 @@ class Feedback:
     A zero target bypasses PI immediately. Missing feedback is handled by bridge.
     """
     def __init__(self, k, duty_cap=.10):
+        """初始化实例。
+
+        参数：k、duty_cap。
+        """
         if not math.isfinite(k) or k<=0 or not 0<duty_cap<=.55:
             raise ValueError('invalid conversion or diagnostic duty cap')
         self.k, self.cap = k, duty_cap
         self.reset()
 
     def reset(self):
+        """重置。"""
         self.iv=self.iw=self.l=self.a=0.
 
     def step(self, v, w, measured_v, measured_w, dt, diff=False):
+        """推进。
+
+        参数：v、w、measured_v、measured_w、dt、diff。
+        返回：计算结果。
+        """
         if not all(math.isfinite(x) for x in (v,w,measured_v,measured_w,dt)):
             raise ValueError('non-finite command/feedback')
         # 2026-10-27: 巡航速度已提到 0.28 m/s，这里的上限必须跟着放（原来 0.25），

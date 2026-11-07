@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# motor/motor_driver.py
+# 作用：Wheel odometry + PID motor driver — two-wheel differential r
+# 模块：电机/舵机驱动与接线
+# 文档：docs/代码结构说明.md
+
 """Wheel odometry + PID motor driver — two-wheel differential robot.
 
 Subscribes /cmd_vel (geometry_msgs/Twist), drives a dual H-bridge via libgpiod
@@ -40,8 +45,13 @@ from motor_control import Pid, map_channels, twist_to_wheel_speeds, wheel_duties
 from motor_hw import GpioMotorHW, FakeMotorHW
 
 
+# ---------------------------------------------------------------------------
+# MotorDriverNode
+# ---------------------------------------------------------------------------
 class MotorDriverNode(Node):
+    """MotorDriverNode 类。"""
     def __init__(self):
+        """初始化实例。"""
         super().__init__('motor_driver')
 
         # ---------- parameters ----------
@@ -149,6 +159,10 @@ class MotorDriverNode(Node):
 
     # ------------------------------------------------------------------ helpers
     def _declare_params(self):
+        """内部辅助：declare_params。
+
+        返回：计算结果。
+        """
         d = {}
         names = [
             'wheel_base', 'counts_per_meter', 'flip_left', 'flip_right', 'swap_lr',
@@ -168,6 +182,10 @@ class MotorDriverNode(Node):
         return d
 
     def _set_armed(self, on):
+        """设置 armed。
+
+        参数：on。
+        """
         self._armed = bool(on)
         if not on:
             self._target_v = 0.0
@@ -181,6 +199,10 @@ class MotorDriverNode(Node):
 
     # ------------------------------------------------------------------ ROS callbacks
     def _on_cmd_vel(self, msg):
+        """处理 cmd vel。
+
+        参数：msg。
+        """
         v = msg.linear.x
         w = msg.angular.z
         v = max(-self._max_lin, min(self._max_lin, v))
@@ -190,15 +212,25 @@ class MotorDriverNode(Node):
         self._last_cmd_ts = time.monotonic()
 
     def _on_arm(self, msg):
+        """处理 arm。
+
+        参数：msg。
+        """
         self._set_armed(bool(msg.data))
 
     def _on_enable(self, req, resp):
+        """处理 enable。
+
+        参数：req、resp。
+        返回：计算结果。
+        """
         self._set_armed(bool(req.data))
         resp.success = True
         resp.message = 'armed' if self._armed else 'disarmed'
         return resp
 
     def _watchdog_loop(self):
+        """内部辅助：watchdog_loop。"""
         while not self._watchdog_stop.is_set():
             if self._armed and (time.monotonic() - self._last_cmd_ts) > self._cmd_timeout:
                 self.get_logger().warn(
@@ -208,6 +240,10 @@ class MotorDriverNode(Node):
 
     # ------------------------------------------------------------------ control
     def _read_wheel_speeds(self):
+        """读取 wheel speeds。
+
+        返回：计算结果。
+        """
         c_l, c_r = self.hw.read_encoders()
         now = time.monotonic()
         dt = now - self._last_speed_ts
@@ -226,10 +262,16 @@ class MotorDriverNode(Node):
         return v_l, v_r, dt
 
     def _dir_from_speed(self, v, flip):
+        """内部辅助：dir_from_speed。
+
+        参数：v、flip。
+        返回：计算结果。
+        """
         s = -1.0 if flip else 1.0
         return (s * v) >= 0.0
 
     def _control_tick(self):
+        """内部辅助：control_tick。"""
         v_l_meas, v_r_meas, dt = self._read_wheel_speeds()
 
         if not self._armed:
@@ -286,6 +328,7 @@ class MotorDriverNode(Node):
 
     # ------------------------------------------------------------------ odometry
     def _odom_tick(self):
+        """内部辅助：odom_tick。"""
         now = time.monotonic()
         dt = now - self._last_odom_ts
         self._last_odom_ts = now
@@ -304,6 +347,10 @@ class MotorDriverNode(Node):
         self._publish_odom(self.get_clock().now().to_msg())
 
     def _publish_odom(self, stamp):
+        """发布 odom。
+
+        参数：stamp。
+        """
         half = self._th * 0.5
         t = TransformStamped()
         t.header.stamp = stamp
@@ -329,6 +376,7 @@ class MotorDriverNode(Node):
 
     # ------------------------------------------------------------------ shutdown
     def shutdown(self):
+        """「shutdown」的实现。"""
         self._set_armed(False)
         self._watchdog_stop.set()
         try:
@@ -339,6 +387,7 @@ class MotorDriverNode(Node):
 
 
 def main():
+    """命令行入口。"""
     rclpy.init()
     node = MotorDriverNode()
     try:

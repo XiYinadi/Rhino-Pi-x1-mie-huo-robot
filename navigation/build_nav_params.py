@@ -1,3 +1,8 @@
+# navigation/build_nav_params.py
+# 作用：Derive Humble-specific defaults from the installed Nav2 dist
+# 模块：导航、定位、巡检执行
+# 文档：docs/代码结构说明.md
+
 """Derive Humble-specific defaults from the installed Nav2 distribution."""
 import math
 from pathlib import Path
@@ -8,6 +13,7 @@ from navigation_drive import is_trial, validate_navigation
 
 
 def build():
+    """构建。"""
     here = Path(__file__).resolve().parent
     cfg = yaml.safe_load((here/'navigation_calibration.yaml').read_text())
     trial=is_trial(cfg)

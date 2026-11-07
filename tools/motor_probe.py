@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# tools/motor_probe.py
+# 作用：Direct rclpy probe — no ros2 CLI, no daemon (bypasses broken
+# 模块：诊断与测试工具
+# 文档：docs/代码结构说明.md
+
 """Direct rclpy probe — no ros2 CLI, no daemon (bypasses broken AidLux daemon).
 
 Answers with DDS ground truth:
@@ -33,6 +38,7 @@ def stream(node, pub, tw, seconds):
 
 
 def main():
+    """命令行入口。"""
     rclpy.init()
     n = rclpy.create_node('probe')
     time.sleep(2.0)

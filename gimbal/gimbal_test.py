@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# gimbal/gimbal_test.py
+# 作用：云台帧编码的离线测试 —— 无硬件、无串口、**Windows 上也能跑**。
+# 模块：二维云台串口控制
+# 文档：docs/代码结构说明.md
+
 """云台帧编码的离线测试 —— 无硬件、无串口、**Windows 上也能跑**。
 
     python3 gimbal_test.py        (退出码 0 = 全过,失败会 assert 报错)
@@ -364,6 +369,7 @@ def test_slew_clamped_dt_is_the_caller_s_job():
 
 
 def main():
+    """命令行入口。"""
     print("gimbal_test:")
     test_golden_vectors()
     test_c_transcription_baseline()

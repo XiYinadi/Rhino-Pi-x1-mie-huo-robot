@@ -1,3 +1,8 @@
+# web/map_editor.py
+# 作用：Copy-only occupancy-map editing. No ROS, socket control or a
+# 模块：网页端与 SocketIO 服务
+# 文档：docs/代码结构说明.md
+
 """Copy-only occupancy-map editing. No ROS, socket control or actuator imports."""
 import base64
 from collections import OrderedDict
@@ -25,12 +30,22 @@ UNKNOWN = 205
 
 
 def checked_name(value):
+    """「checked_name」的实现。
+
+    参数：value。
+    返回：计算结果。
+    """
     if not isinstance(value, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,64}', value):
         raise ValueError('地图名须为 1–64 个英文字母、数字、下划线或短横线')
     return value
 
 
 def geometry(width, height, metadata):
+    """「geometry」的实现。
+
+    参数：width、height、metadata。
+    返回：计算结果。
+    """
     if type(width) is not int or type(height) is not int or width < 1 or height < 1 or width*height > MAX_CELLS:
         raise ValueError('地图尺寸无效或超过 400 万栅格')
     resolution, origin = metadata.get('resolution'), metadata.get('origin')
@@ -75,7 +90,11 @@ def read_pgm(blob):
 
 
 @dataclass(frozen=True)
+# ---------------------------------------------------------------------------
+# Snapshot
+# ---------------------------------------------------------------------------
 class Snapshot:
+    """Snapshot 类。"""
     width: int
     height: int
     pixels: bytes
@@ -84,10 +103,19 @@ class Snapshot:
 
     @property
     def digest(self):
+        """「digest」的实现。
+
+        返回：计算结果。
+        """
         return hashlib.sha256(json.dumps(self.metadata, sort_keys=True).encode()+self.pixels).hexdigest()
 
 
 def from_message(msg):
+    """据以转换 message。
+
+    参数：msg。
+    返回：计算结果。
+    """
     info = msg.info
     width, height = int(info.width), int(info.height)
     q = info.origin.orientation
@@ -102,6 +130,11 @@ def from_message(msg):
 
 
 def from_saved(store, name):
+    """据以转换 saved。
+
+    参数：store、name。
+    返回：计算结果。
+    """
     path = Path(store.path(checked_name(name))).resolve()
     meta = yaml.safe_load(path.read_text(encoding='utf-8'))
     if not isinstance(meta, dict) or not isinstance(meta.get('image'), str): raise ValueError('地图元数据无效')
@@ -113,6 +146,11 @@ def from_saved(store, name):
 
 
 def edit_image(source, operations):
+    """「edit_image」的实现。
+
+    参数：source、operations。
+    返回：计算结果。
+    """
     if not isinstance(operations, list) or len(operations) > 200: raise ValueError('最多支持 200 次标注')
     image = Image.frombytes('L', (source.width, source.height), source.pixels)
     draw = ImageDraw.Draw(image)
@@ -143,17 +181,32 @@ def edit_image(source, operations):
 
 
 def image_payload(source, image):
+    """「image_payload」的实现。
+
+    参数：source、image。
+    返回：计算结果。
+    """
     buf = io.BytesIO(); image.save(buf, format='PNG')
     changed = sum(a != b for a,b in zip(source.pixels, image.tobytes()))
     return dict(image=base64.b64encode(buf.getvalue()).decode('ascii'), changed_cells=changed)
 
 
+# ---------------------------------------------------------------------------
+# Editor
+# ---------------------------------------------------------------------------
 class Editor:
+    """Editor 类。"""
     def __init__(self):
+        """初始化实例。"""
         self.lock = threading.RLock()
         self.sources = OrderedDict()
 
     def add(self, source):
+        """添加。
+
+        参数：source。
+        返回：计算结果。
+        """
         token = secrets.token_urlsafe(24)
         with self.lock:
             self.sources[token] = (time.monotonic(), source)
@@ -163,6 +216,11 @@ class Editor:
                     **image_payload(source, Image.frombytes('L',(source.width,source.height),source.pixels)))
 
     def get(self, token):
+        """读取。
+
+        参数：token。
+        返回：计算结果。
+        """
         if not isinstance(token, str): raise ValueError('请先载入地图')
         with self.lock:
             row = self.sources.get(token)
@@ -170,6 +228,11 @@ class Editor:
             return row[1]
 
     def save(self, store, source, operations, name, request_id):
+        """保存。
+
+        参数：store、source、operations、name、request_id。
+        返回：计算结果。
+        """
         name = checked_name(name)
         if not isinstance(request_id,str) or not re.fullmatch(r'[A-Za-z0-9_-]{12,80}',request_id): raise ValueError('保存请求标识无效')
         if not operations: raise ValueError('请先完成至少一项标注')
@@ -204,20 +267,38 @@ class Editor:
 
 
 def register_map_editor(app, node_getter, navigation_getter, asset_root=None):
+    """「register_map_editor」的实现。
+
+    参数：app、node_getter、navigation_getter、asset_root。
+    返回：计算结果。
+    """
     editor = Editor(); asset_root = Path(asset_root or Path(__file__).parent)
 
     def navigation():
+        """「navigation」的实现。
+
+        返回：计算结果。
+        """
         nav = navigation_getter()
         if nav is None or not hasattr(nav,'store'): raise ValueError('地图存储尚未就绪')
         return nav
 
     def body():
+        """「body」的实现。
+
+        返回：计算结果。
+        """
         if request.content_length and request.content_length > 262144: raise ValueError('标注数据过大')
         data = request.get_json(silent=True)
         if not isinstance(data,dict): raise ValueError('请求格式无效')
         return data
 
     def handle(fn):
+        """处理。
+
+        参数：fn。
+        返回：计算结果。
+        """
         try: return jsonify(fn())
         except (ValueError,FileNotFoundError,yaml.YAMLError) as error: return jsonify(error=str(error)),400
         except Exception:
@@ -229,6 +310,11 @@ def register_map_editor(app, node_getter, navigation_getter, asset_root=None):
 
     @app.get('/map-editor/<asset>')
     def map_editor_asset(asset):
+        """映射 editor asset。
+
+        参数：asset。
+        返回：计算结果。
+        """
         if asset not in ('map_editor.js','map_editor.css'): return '',404
         return send_file(asset_root/asset)
 
@@ -237,7 +323,15 @@ def register_map_editor(app, node_getter, navigation_getter, asset_root=None):
 
     @app.post('/api/map-editor/source')
     def map_editor_source():
+        """映射 editor source。
+
+        返回：计算结果。
+        """
         def run():
+            """运行。
+
+            返回：计算结果。
+            """
             data = body()
             if data.get('source') == 'saved': return editor.add(from_saved(navigation().store,data.get('name')))
             if data.get('source') != 'live': raise ValueError('地图来源无效')
@@ -253,14 +347,30 @@ def register_map_editor(app, node_getter, navigation_getter, asset_root=None):
 
     @app.post('/api/map-editor/preview')
     def map_editor_preview():
+        """映射 editor preview。
+
+        返回：计算结果。
+        """
         def run():
+            """运行。
+
+            返回：计算结果。
+            """
             data = body(); source = editor.get(data.get('token'))
             return image_payload(source,edit_image(source,data.get('operations')))
         return handle(run)
 
     @app.post('/api/map-editor/save')
     def map_editor_save():
+        """映射 editor save。
+
+        返回：计算结果。
+        """
         def run():
+            """运行。
+
+            返回：计算结果。
+            """
             data=body(); nav=navigation(); source=editor.get(data.get('token'))
             name=editor.save(nav.store,source,data.get('operations'),data.get('name'),data.get('request_id'))
             # Notify map selectors only; never start localization or touch driving.
@@ -269,7 +379,15 @@ def register_map_editor(app, node_getter, navigation_getter, asset_root=None):
         return handle(run)
     @app.get('/api/map-editor/regions')
     def map_editor_regions():
+        """映射 editor regions。
+
+        返回：计算结果。
+        """
         def run():
+            """运行。
+
+            返回：计算结果。
+            """
             store = navigation().store
             return dict(name=checked_name(request.args.get('name','')),
                         regions=store.regions(request.args.get('name','')))
@@ -277,7 +395,15 @@ def register_map_editor(app, node_getter, navigation_getter, asset_root=None):
 
     @app.post('/api/map-editor/regions')
     def map_editor_save_regions():
+        """映射 editor save regions。
+
+        返回：计算结果。
+        """
         def run():
+            """运行。
+
+            返回：计算结果。
+            """
             data = body(); nav = navigation()
             name = checked_name(data.get('name'))
             regions = nav.store.save_regions(name, data.get('regions'))
@@ -288,7 +414,15 @@ def register_map_editor(app, node_getter, navigation_getter, asset_root=None):
 
     @app.post('/api/map-editor/delete')
     def map_editor_delete():
+        """映射 editor delete。
+
+        返回：计算结果。
+        """
         def run():
+            """运行。
+
+            返回：计算结果。
+            """
             data = body(); nav = navigation()
             name = checked_name(data.get('name'))
             if getattr(nav, 'active_map', None) == name:
@@ -308,6 +442,10 @@ def register_map_editor(app, node_getter, navigation_getter, asset_root=None):
 
     @app.get('/api/map-editor/thumb')
     def map_editor_thumb():
+        """映射 editor thumb。
+
+        返回：计算结果。
+        """
         try:
             name = checked_name(request.args.get('name', ''))
             path = navigation().store.path(name)
@@ -322,7 +460,15 @@ def register_map_editor(app, node_getter, navigation_getter, asset_root=None):
 
     @app.post('/api/map-editor/rename')
     def map_editor_rename():
+        """映射 editor rename。
+
+        返回：计算结果。
+        """
         def run():
+            """运行。
+
+            返回：计算结果。
+            """
             data = body(); nav = navigation()
             name = checked_name(data.get('name')); to = checked_name(data.get('to'))
             if getattr(nav, 'active_map', None) == name:
@@ -340,7 +486,15 @@ def register_map_editor(app, node_getter, navigation_getter, asset_root=None):
 
     @app.post('/api/map-editor/official')
     def map_editor_official():
+        """映射 editor official。
+
+        返回：计算结果。
+        """
         def run():
+            """运行。
+
+            返回：计算结果。
+            """
             data = body(); nav = navigation()
             name = checked_name(data.get('name'))
             official = bool(data.get('official', True))

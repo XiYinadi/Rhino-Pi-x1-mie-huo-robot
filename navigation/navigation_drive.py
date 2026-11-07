@@ -1,3 +1,8 @@
+# navigation/navigation_drive.py
+# 作用：Bounded supervised navigation using measured odometry, never
+# 模块：导航、定位、巡检执行
+# 文档：docs/代码结构说明.md
+
 """Bounded supervised navigation using measured odometry, never inferred full throttle."""
 import importlib.util
 import math
@@ -5,9 +10,19 @@ from pathlib import Path
 from navigation_core import footprint_points, validate_calibration
 
 def is_trial(config):
+    """判断是否 trial。
+
+    参数：config。
+    返回：计算结果。
+    """
     return config.get('navigation_mode') == 'supervised_trial'
 
 def validate_navigation(config):
+    """校验 navigation。
+
+    参数：config。
+    返回：计算结果。
+    """
     if not is_trial(config):
         return validate_calibration(config)
     # 2026-10-24: 上限从已验证包络(0.05/10%/15°/0.5)抬到实验包络
@@ -41,7 +56,12 @@ def validate_navigation(config):
     footprint_points(config)
 
 class TrialDrive:
+    """TrialDrive 类。"""
     def __init__(self, config):
+        """初始化实例。
+
+        参数：config。
+        """
         validate_navigation(config)
         if not is_trial(config):raise ValueError('Expected supervised trial profile')
         # Reuse the exact speed controller used in the physical 6.5cm/95cm runs.
@@ -55,6 +75,11 @@ class TrialDrive:
         # 0.15s 是「20Hz 控制节拍」的假设，但控制循环跑在网页广播循环里，
         # load 高时一次 emit 就能超过它。Feedback 内部本来就把 dt 钳到 0.04，
         # 所以这里只兜「循环真的冻住」，正常抖动交给它自己积分。
+        """推进。
+
+        参数：v、w、measured_v、dt。
+        返回：计算结果。
+        """
         if not all(math.isfinite(x) for x in (v,w,measured_v,dt)):
             raise ValueError('速度反馈或控制节拍异常')
         if not 0 < dt <= .5:

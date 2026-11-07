@@ -1,3 +1,8 @@
+# navigation/patrol_store.py
+# 作用：Persistent patrol definitions. Saving a task never starts na
+# 模块：导航、定位、巡检执行
+# 文档：docs/代码结构说明.md
+
 """Persistent patrol definitions. Saving a task never starts navigation."""
 import copy
 import json
@@ -10,6 +15,11 @@ from map_store import checked_name
 
 
 def validate_task(data):
+    """校验 task。
+
+    参数：data。
+    返回：计算结果。
+    """
     if not isinstance(data, dict):
         raise ValueError('巡检任务格式无效')
     name, map_name = checked_name(data.get('name')), checked_name(data.get('map'))
@@ -39,19 +49,34 @@ def validate_task(data):
 
 
 class PatrolStore:
+    """PatrolStore 类。"""
     def __init__(self, directory, maps):
+        """初始化实例。
+
+        参数：directory、maps。
+        """
         self.root = Path(directory).resolve()
         self.root.mkdir(parents=True, exist_ok=True)
         self.maps = maps
         self.lock = threading.RLock()
 
     def path(self, name):
+        """「path」的实现。
+
+        参数：name。
+        返回：计算结果。
+        """
         p = self.root/(checked_name(name)+'.json')
         if p.resolve().parent != self.root:
             raise ValueError('任务路径不合法')
         return p
 
     def get(self, name):
+        """读取。
+
+        参数：name。
+        返回：计算结果。
+        """
         with self.lock:
             p = self.path(name)
             if not p.is_file():
@@ -62,6 +87,10 @@ class PatrolStore:
             return task
 
     def list(self):
+        """列出。
+
+        返回：计算结果。
+        """
         result = []
         with self.lock:
             for p in sorted(self.root.glob('*.json')):
@@ -74,6 +103,11 @@ class PatrolStore:
         return result
 
     def save(self, data):
+        """保存。
+
+        参数：data。
+        返回：计算结果。
+        """
         task = validate_task(data)
         self.maps.path(task['map'])
         with self.lock:

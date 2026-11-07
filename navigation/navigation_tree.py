@@ -1,7 +1,17 @@
+# navigation/navigation_tree.py
+# 作用：A failed replan may reuse only this task's collision-checked
+# 模块：导航、定位、巡检执行
+# 文档：docs/代码结构说明.md
+
 """A failed replan may reuse only this task's collision-checked route."""
 
 
 def single_goal_tree(trial=False):
+    """「single_goal_tree」的实现。
+
+    参数：trial。
+    返回：计算结果。
+    """
     if not trial:
         return '''<root main_tree_to_execute="MainTree">
 <BehaviorTree ID="MainTree"><PipelineSequence name="Navigate">

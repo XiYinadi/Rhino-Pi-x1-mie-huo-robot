@@ -1,3 +1,8 @@
+# navigation/navigation_launch.py
+# 作用：Dedicated localization/navigation launch; every velocity is 
+# 模块：导航、定位、巡检执行
+# 文档：docs/代码结构说明.md
+
 """Dedicated localization/navigation launch; every velocity is remapped away from /cmd_vel."""
 import os
 import sys
@@ -10,6 +15,10 @@ from ament_index_python.packages import get_package_share_directory
 
 
 def generate_launch_description():
+    """「generate_launch_description」的实现。
+
+    返回：计算结果。
+    """
     root = Path(__file__).resolve().parent.parent
     sys.path.insert(0,str(root/'slam'))
     from laser_mount import load_mount, tf_arguments

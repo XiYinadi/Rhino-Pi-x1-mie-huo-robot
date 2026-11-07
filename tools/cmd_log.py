@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# tools/cmd_log.py
+# 作用：把 /cmd_vel 与 /wheel_speed 逐条带时间戳打到 stdout,用于定位「电机抖动」的
+# 模块：诊断与测试工具
+# 文档：docs/代码结构说明.md
+
 """把 /cmd_vel 与 /wheel_speed 逐条带时间戳打到 stdout,用于定位「电机抖动」的
 来源:
 
@@ -29,11 +34,16 @@ T0 = time.monotonic()
 
 
 def main():
+    """命令行入口。"""
     rclpy.init()
     n = rclpy.create_node('cmd_log')
 
     def fmt(tag, s):
         # flush 每行,否则 nohup 重定向到文件时会攒在缓冲区里,读日志时是空的
+        """「fmt」的实现。
+
+        参数：tag、s。
+        """
         print("%7.3f %s %s" % (time.monotonic() - T0, tag, s), flush=True)
 
     n.create_subscription(

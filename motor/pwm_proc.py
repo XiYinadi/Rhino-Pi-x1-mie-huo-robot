@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# motor/pwm_proc.py
+# 作用：直接 PWM 进程 —— 摇杆 → GPIO,完全绕开 ROS。
+# 模块：电机/舵机驱动与接线
+# 文档：docs/代码结构说明.md
+
 """直接 PWM 进程 —— 摇杆 → GPIO,完全绕开 ROS。
 
 为什么要单独一个进程
@@ -109,6 +114,9 @@ def load_params(path):
         sys.exit('%s 里没有 motor_driver.ros__parameters 段' % path)
 
 
+# ---------------------------------------------------------------------------
+# ServoLink
+# ---------------------------------------------------------------------------
 class ServoLink:
     """舵机 PWM 的**代理**:真正的脉冲由独立进程 servo_proc.py 生成。
 
@@ -123,6 +131,10 @@ class ServoLink:
     def __init__(self, chip_name, line, freq=50.0, center_us=1500.0,
                  range_us=500.0, min_us=500.0, max_us=2500.0,
                  invert=False, deadband=0.0, hysteresis_us=0.0, logger=None):
+        """初始化实例。
+
+        参数：chip_name、line、freq、center_us、range_us、min_us、max_us、invert、deadband、hysteresis_us、logger。
+        """
         self._center = float(center_us)
         self._range = float(range_us)
         self._lo = float(min_us)
@@ -150,12 +162,20 @@ class ServoLink:
             raise RuntimeError('servo_proc 启动即退出(见 /tmp/servo_proc.log)')
 
     def _send(self, text):
+        """发送。
+
+        参数：text。
+        """
         try:
             self._sock.sendto(text.encode('ascii'), self._addr)
         except OSError:
             pass
 
     def set_command(self, x):
+        """设置 command。
+
+        参数：x。
+        """
         x = max(-1.0, min(1.0, float(x)))
         if self._deadband > 0.0 and abs(x) < self._deadband:
             x = 0.0
@@ -170,25 +190,40 @@ class ServoLink:
         self._send('%.1f' % us)
 
     def park(self):
+        """「park」的实现。"""
         with self._lock:
             self._pulse = None
         self._send('park')
 
     @property
     def parked(self):
+        """「parked」的实现。
+
+        返回：计算结果。
+        """
         return self._pulse is None
 
     @property
     def pulse_us(self):
+        """「pulse_us」的实现。
+
+        返回：计算结果。
+        """
         return self._pulse
 
     def stats(self):
+        """「stats」的实现。
+
+        返回：计算结果。
+        """
         return None                 # 实测脉宽在 /tmp/servo_proc.log 里
 
     def start(self):
+        """启动。"""
         pass
 
     def stop(self):
+        """停止。"""
         with self._lock:
             self._pulse = None
         self._send('park')
@@ -202,10 +237,17 @@ class ServoLink:
                 pass
 
 
+# ---------------------------------------------------------------------------
+# PwmProc
+# ---------------------------------------------------------------------------
 class PwmProc:
     """摇杆 UDP 包 → 占空比 → GPIO。单线程,无锁竞争。"""
 
     def __init__(self, p, port):
+        """初始化实例。
+
+        参数：p、port。
+        """
         self._max_lin = float(p['max_linear_speed'])
         self._max_ang = float(p['max_angular_speed'])
         self._wheel_base = float(p['wheel_base'])
@@ -387,6 +429,7 @@ class PwmProc:
 
     # ---------------------------------------------------------------- control
     def _step(self):
+        """推进。"""
         now = time.monotonic()
         if self._last_pkt > 0.0:
             self._age_ms = (now - self._last_pkt) * 1000.0
@@ -486,9 +529,14 @@ class PwmProc:
                 self.servo.set_command(0.0 if self._hold_center else self._a)
 
     def _log(self, msg):
+        """记录日志。
+
+        参数：msg。
+        """
         print('[pwm_proc] %s' % msg, flush=True)
 
     def _status(self):
+        """内部辅助：status。"""
         now = time.monotonic()
         dt = now - self._t_status
         if dt < STATUS_EVERY:
@@ -529,6 +577,7 @@ class PwmProc:
 
     # ---------------------------------------------------------------- loop
     def run(self):
+        """运行。"""
         period = 1.0 / self._rate_hz
         nxt = time.monotonic()
         while self._run:
@@ -544,9 +593,11 @@ class PwmProc:
                 nxt = time.monotonic()      # 落后了就重新对齐,别累积
 
     def stop(self):
+        """停止。"""
         self._run = False
 
     def shutdown(self):
+        """「shutdown」的实现。"""
         try:
             self.hw.set_duty(0.0, 0.0)
             self.hw.set_direction(True, True)
@@ -569,6 +620,7 @@ class PwmProc:
 
 
 def main():
+    """命令行入口。"""
     ap = argparse.ArgumentParser(description='摇杆 → GPIO 直连 PWM 进程')
     ap.add_argument('--params', default=DEFAULT_PARAMS,
                     help='参数文件 (默认 %s)' % DEFAULT_PARAMS)
@@ -584,6 +636,10 @@ def main():
     proc = PwmProc(params, args.port)
 
     def _on_signal(signum, _frame):
+        """处理 signal。
+
+        参数：signum、_frame。
+        """
         proc.stop()
 
     signal.signal(signal.SIGINT, _on_signal)

@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# tools/enc_dir_test.py
+# 作用：用编码器判断左右轮的实际转向（pwm_proc 未申请编码器线，可直接读）。
+# 模块：诊断与测试工具
+# 文档：docs/代码结构说明.md
+
 """用编码器判断左右轮的实际转向（pwm_proc 未申请编码器线，可直接读）。
 
 前进 3 秒、倒车 3 秒，比较左右轮的计数符号：
@@ -24,6 +29,10 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 
 def send(l, seconds):
+    """发送。
+
+    参数：l、seconds。
+    """
     end = time.time() + seconds
     while time.time() < end:
         sock.sendto(json.dumps({"l": l, "a": 0.0, "armed": True}).encode(), ("127.0.0.1", 5813))
@@ -34,6 +43,10 @@ def send(l, seconds):
 
 
 def delta():
+    """「delta」的实现。
+
+    返回：计算结果。
+    """
     return left.count, right.count
 
 

@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# tools/encoder_signal_probe.py
+# 作用：Read-only raw encoder event diagnostic; never requests outpu
+# 模块：诊断与测试工具
+# 文档：docs/代码结构说明.md
+
 """Read-only raw encoder event diagnostic; never requests output lines.
 
 Reports raw edge counts, repeated edge polarity (possible missing events),
@@ -13,6 +18,7 @@ from pathlib import Path
 
 
 def main():
+    """命令行入口。"""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--seconds', type=float, default=120)
     parser.add_argument('--output', type=Path)
@@ -30,6 +36,7 @@ def main():
     requested = False
     start = time.monotonic()
     def report():
+        """生成报告。"""
         print(json.dumps(dict(elapsed_s=round(time.monotonic()-start,2),
                               lines=list(stats.values())),ensure_ascii=False),flush=True)
     try:

@@ -1,3 +1,8 @@
+# inspection/local_model.py
+# 作用：Local VLM HTTP access, serialized across camera and report p
+# 模块：巡检记录与报告
+# 文档：docs/代码结构说明.md
+
 """Local VLM HTTP access, serialized across camera and report processes."""
 import contextlib
 import json
@@ -7,6 +12,10 @@ import urllib.request
 
 @contextlib.contextmanager
 def inference_slot(timeout=80):
+    """「inference_slot」的实现。
+
+    参数：timeout。
+    """
     import fcntl
     deadline = time.monotonic()+timeout
     with open('/tmp/robot_local_vlm.lock', 'a') as file:
@@ -25,6 +34,11 @@ def inference_slot(timeout=80):
 
 
 def completion(payload, api='http://127.0.0.1:8888', timeout=80):
+    """「completion」的实现。
+
+    参数：payload、api、timeout。
+    返回：计算结果。
+    """
     req=urllib.request.Request(api+'/v1/chat/completions',
         data=json.dumps(payload).encode(), headers={'Content-Type':'application/json'})
     with inference_slot(timeout):
@@ -34,6 +48,10 @@ def completion(payload, api='http://127.0.0.1:8888', timeout=80):
 
 
 def loaded_model():
+    """「loaded_model」的实现。
+
+    返回：计算结果。
+    """
     with urllib.request.urlopen('http://127.0.0.1:8888/v1/models', timeout=3) as response:
         data=json.load(response)
     model=data.get('loaded_id') or (data.get('data') or [{}])[0].get('id')

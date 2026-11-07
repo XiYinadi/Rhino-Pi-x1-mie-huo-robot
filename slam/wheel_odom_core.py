@@ -1,3 +1,8 @@
+# slam/wheel_odom_core.py
+# 作用：Encoder-only odometry math and chronological quadrature deco
+# 模块：激光与惯性里程计、建图
+# 文档：docs/代码结构说明.md
+
 """Encoder-only odometry math and chronological quadrature decoding (no ROS/GPIO)."""
 import math
 
@@ -21,14 +26,23 @@ def sample_fault(previous, current):
 
 
 class Quadrature:
+    """Quadrature 类。"""
     TABLE = (0, -1, 1, 0, 1, 0, 0, -1, -1, 0, 0, 1, 0, 1, -1, 0)
 
     def __init__(self, a, b):
+        """初始化实例。
+
+        参数：a、b。
+        """
         self.state = (int(a) << 1) | int(b)
         self.count = 0
         self.last_ns = -1
 
     def edge(self, timestamp_ns, channel, level):
+        """「edge」的实现。
+
+        参数：timestamp_ns、channel、level。
+        """
         if timestamp_ns <= self.last_ns:
             raise ValueError('encoder timestamp not strictly increasing')
         self.last_ns = timestamp_ns

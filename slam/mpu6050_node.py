@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# slam/mpu6050_node.py
+# 作用：GY-521 reader: /imu/data_raw in sensor axes, SI units, no es
+# 模块：激光与惯性里程计、建图
+# 文档：docs/代码结构说明.md
+
 """GY-521 reader: /imu/data_raw in sensor axes, SI units, no estimated orientation."""
 import argparse
 import ctypes
@@ -13,17 +18,33 @@ for directory in ('/usr/local/lib/python3.10/dist-packages', '/usr/lib/python3/d
         sys.path.insert(0, directory)
 
 
+# ---------------------------------------------------------------------------
+# Message
+# ---------------------------------------------------------------------------
 class Message(ctypes.Structure):
+    """Message 类。"""
     _fields_ = [('addr', ctypes.c_uint16), ('flags', ctypes.c_uint16),
                 ('length', ctypes.c_uint16), ('buf', ctypes.POINTER(ctypes.c_uint8))]
 
 
+# ---------------------------------------------------------------------------
+# Transfer
+# ---------------------------------------------------------------------------
 class Transfer(ctypes.Structure):
+    """Transfer 类。"""
     _fields_ = [('messages', ctypes.POINTER(Message)), ('count', ctypes.c_uint32)]
 
 
+# ---------------------------------------------------------------------------
+# MPU6050
+# ---------------------------------------------------------------------------
 class MPU6050:
+    """MPU6050 类。"""
     def __init__(self, device='/dev/i2c-1', address=0x68):
+        """初始化实例。
+
+        参数：device、address。
+        """
         self.fd = os.open(device, os.O_RDWR)
         self.address = address
         try:
@@ -34,9 +55,15 @@ class MPU6050:
             raise
 
     def close(self):
+        """关闭。"""
         os.close(self.fd)
 
     def read(self, register, length):
+        """读取。
+
+        参数：register、length。
+        返回：计算结果。
+        """
         reg = (ctypes.c_uint8*1)(register)
         buf = (ctypes.c_uint8*length)()
         messages = (Message*2)(Message(self.address, 0, 1, reg), Message(self.address, 1, length, buf))
@@ -46,6 +73,10 @@ class MPU6050:
         return bytes(buf)
 
     def write(self, register, value):
+        """写入。
+
+        参数：register、value。
+        """
         buf = (ctypes.c_uint8*2)(register, value)
         messages = (Message*1)(Message(self.address, 0, 2, buf))
         if fcntl.ioctl(self.fd, 0x707, Transfer(messages, 1)) != 1:
@@ -56,6 +87,7 @@ class MPU6050:
         # 2026-10-28: DLPF 44Hz->21Hz。实测这类 MPU6050 在 44Hz 下逐样本噪声
         # std 达 0.02~0.07 rad/s，21Hz 明显更稳；代价是约 20ms 延迟，
         # 对 100Hz 里程计与 0.8rad/s 的旋转足够。
+        """「configure」的实现。"""
         for reg, value in ((0x6B, 1), (0x6C, 0), (0x1A, 4), (0x19, 9), (0x1B, 0), (0x1C, 0)):
             self.write(reg, value)
         # 2026-10-28: 0.15 -> 0.5s。DLPF 刚配置完的前几百毫秒噪声偏大，
@@ -66,6 +98,10 @@ class MPU6050:
                 raise ValueError(f'Configuration readback failed at {reg:#x}')
 
     def sample(self):
+        """「sample」的实现。
+
+        返回：计算结果。
+        """
         values = struct.unpack('>7h', self.read(0x3B, 14))
         accel = [v*9.80665/16384. for v in values[:3]]
         gyro = [v*math.pi/(180.*131.) for v in values[4:]]
@@ -73,6 +109,7 @@ class MPU6050:
 
 
 def main():
+    """命令行入口。"""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check', action='store_true', help='Read identity only, without configuring sensor')
     args, ros_args = parser.parse_known_args()
@@ -88,7 +125,9 @@ def main():
     from gyro_core import calibrate
 
     class Reader(Node):
+        """Reader 类。"""
         def __init__(self):
+            """初始化实例。"""
             super().__init__('mpu6050')
             self.sensor = None
             self.bias = None
@@ -101,6 +140,7 @@ def main():
             self.get_logger().info('Keep chassis stationary for 3s gyro calibration')
 
         def tick(self):
+            """执行一次主循环：刷新状态、检查门控并下发输出。"""
             now = time.monotonic()
             if now < self.retry:
                 return

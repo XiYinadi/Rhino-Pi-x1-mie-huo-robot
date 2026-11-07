@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# motor/servo_pulse_probe.py
+# 作用：量 SoftServoPwm 实际发出的脉冲串 —— 回答「舵机抖,是不是我们的信号造成的」。
+# 模块：电机/舵机驱动与接线
+# 文档：docs/代码结构说明.md
+
 """量 SoftServoPwm 实际发出的脉冲串 —— 回答「舵机抖,是不是我们的信号造成的」。
 
 **为什么需要它**:舵机抖有两大类成因,而它们在现象上分不开 ——
@@ -61,13 +66,24 @@ FS = 50.0                    # 舵机帧率,只用来把坏帧率换算成「次
 _events = []
 
 
+# ---------------------------------------------------------------------------
+# Proxy
+# ---------------------------------------------------------------------------
 class Proxy:
     """记录每次 set_value 的时刻和值,再原样转发给真的 Line。"""
 
     def __init__(self, real):
+        """初始化实例。
+
+        参数：real。
+        """
         self._real = real
 
     def set_value(self, v):
+        """设置 value。
+
+        参数：v。
+        """
         _events.append((time.monotonic(), v))
         self._real.set_value(v)
 
@@ -108,6 +124,10 @@ def _transitions(events):
 
 
 def analyze(label, seconds, duty, mot, srv):
+    """「analyze」的实现。
+
+    参数：label、seconds、duty、mot、srv。
+    """
     global _events
     mot.set_duty(duty, duty)
     _events = []
@@ -135,6 +155,7 @@ def analyze(label, seconds, duty, mot, srv):
 
 
 def main():
+    """命令行入口。"""
     secs = float(sys.argv[1]) if len(sys.argv) > 1 else 30.0
 
     mot = DualSoftPwm(gpiod.Chip('gpiochip0'), MOT_L, MOT_R, freq=1000.0)
@@ -149,6 +170,7 @@ def main():
     def mainloop():
         # 复刻 pwm_proc._step():200Hz 下持续下同一个指令。舵机的 set_command
         # 必须一直在调,否则测的就不是真实工况。
+        """「mainloop」的实现。"""
         while not stop.is_set():
             srv.set_command(0.0)
             time.sleep(0.005)

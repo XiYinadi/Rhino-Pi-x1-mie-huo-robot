@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# gimbal/gimbal_proc.py
+# 作用：二维云台串口输出进程 —— 网页摇杆 → UART,独立进程。
+# 模块：二维云台串口控制
+# 文档：docs/代码结构说明.md
+
 """二维云台串口输出进程 —— 网页摇杆 → UART,独立进程。
 
 数据通路(全在本机,不经过 ROS)
@@ -229,6 +234,11 @@ def termios_fingerprint(attrs):
     iflag, oflag, cflag, lflag, ispeed, ospeed, _cc = attrs
 
     def bit(word, name):
+        """「bit」的实现。
+
+        参数：word、name。
+        返回：计算结果。
+        """
         v = getattr(termios, name, 0)
         return bool(v and (word & v))
 
@@ -345,10 +355,17 @@ def open_serial(dev, baud, exclusive=True):
 # ══════════════════════════════════════════════════════════════════════
 # 主进程
 # ══════════════════════════════════════════════════════════════════════
+# ---------------------------------------------------------------------------
+# GimbalProc
+# ---------------------------------------------------------------------------
 class GimbalProc:
     """网页 UDP 包 → 6 字节帧 → 串口。单线程,无锁竞争。"""
 
     def __init__(self, p, port):
+        """初始化实例。
+
+        参数：p、port。
+        """
         self._dev = str(p.get('serial_port', '/dev/ttyHS1'))
         self._baud = int(p.get('serial_baud', 115200))
         self._period = float(p.get('gimbal_cmd_period_s', DEFAULT_PERIOD_S))
@@ -504,6 +521,7 @@ class GimbalProc:
 
     # ---------------------------------------------------------------- 控制
     def _step(self):
+        """推进。"""
         now = time.monotonic()
         if self._last_pkt > 0.0:
             self._age_ms = (now - self._last_pkt) * 1000.0
@@ -558,6 +576,10 @@ class GimbalProc:
 
     # ---------------------------------------------------------------- 状态
     def _log(self, msg):
+        """记录日志。
+
+        参数：msg。
+        """
         print('[gimbal_proc] %s' % msg, flush=True)
 
     def _check_termios(self):
@@ -571,6 +593,7 @@ class GimbalProc:
         self._drift = [(n, v, want[n]) for n, v in got if v != want[n]]
 
     def _status(self):
+        """内部辅助：status。"""
         now = time.monotonic()
         dt = now - self._t_status
         if dt < STATUS_EVERY:
@@ -624,6 +647,7 @@ class GimbalProc:
 
     # ---------------------------------------------------------------- loop
     def run(self):
+        """运行。"""
         period = min(self._period, 0.05)      # 轮询比发送略快即可,不必更快
         nxt = time.monotonic()
         while self._run:
@@ -639,6 +663,7 @@ class GimbalProc:
                 nxt = time.monotonic()        # 落后了就重新对齐,别累积
 
     def stop(self):
+        """停止。"""
         self._run = False
 
     def shutdown(self):
@@ -648,6 +673,7 @@ class GimbalProc:
         #    ⇒ 云台会**按最后锁存的速度一直转**。这不是「保持最后位置」(位置语义),
         #    而是**失控**。**单向无 ACK 的协议里这个洞堵不上**,只能靠云台自带的
         #    看门狗(协议未提,未知)或人去断电源。
+        """「shutdown」的实现。"""
         try:
             if not self._port_broken:
                 self._write_frame(encode_frame(0, 0))
@@ -705,6 +731,11 @@ def diag_pulse(p, dx, dy, secs):
                  (max(abs(dx), abs(dy)) / rate) if rate > 0 else 0.0))
 
         def _send(vx, vy):
+            """发送。
+
+            参数：vx、vy。
+            返回：计算结果。
+            """
             f = encode_frame(vx, vy)
             n = os.write(fd, f)
             if n < FRAME_LEN:                    # 补齐:半帧会把收端相位永久推移
@@ -810,6 +841,10 @@ def diag_loopback(p):
 
 # ══════════════════════════════════════════════════════════════════════
 def main():
+    """命令行入口。
+
+    返回：计算结果。
+    """
     ap = argparse.ArgumentParser(description='网页摇杆 → 云台串口 输出进程')
     ap.add_argument('--params', default=DEFAULT_PARAMS,
                     help='参数文件 (默认 %s)' % DEFAULT_PARAMS)
@@ -850,6 +885,10 @@ def main():
         return 4
 
     def _on_signal(_signum, _frame):
+        """处理 signal。
+
+        参数：_signum、_frame。
+        """
         proc.stop()
 
     signal.signal(signal.SIGINT, _on_signal)

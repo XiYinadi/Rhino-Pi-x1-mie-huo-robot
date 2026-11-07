@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# gimbal/gimbal_proto.py
+# 作用：二维云台 UART 帧的**纯函数层** —— 不 import termios/tty,因此本机(Windows)可单
+# 模块：二维云台串口控制
+# 文档：docs/代码结构说明.md
+
 """二维云台 UART 帧的**纯函数层** —— 不 import termios/tty,因此本机(Windows)可单测。
 
 分层理由与 `motor_control.py` / `laser_odom_core.py` 同一套路(本项目的既定纪律):

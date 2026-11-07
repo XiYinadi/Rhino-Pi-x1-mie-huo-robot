@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# motor/slow_inject.py
+# 作用：按**固定低包率**发 UDP 摇杆包,专门复现「后台标签页被节流到 1Hz」那个工况。
+# 模块：电机/舵机驱动与接线
+# 文档：docs/代码结构说明.md
+
 """按**固定低包率**发 UDP 摇杆包,专门复现「后台标签页被节流到 1Hz」那个工况。
 
     /usr/bin/python3 ~/slow_inject.py [间隔秒=0.4] [时长秒=30] [noarm]
@@ -33,6 +38,10 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 
 def send(l, a, armed):
+    """发送。
+
+    参数：l、a、armed。
+    """
     sock.sendto(json.dumps({"l": float(l), "a": float(a),
                             "armed": bool(armed)}).encode(), ADDR)
 

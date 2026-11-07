@@ -1,3 +1,8 @@
+# navigation/autonomy_smoke.py
+# 作用：Board integration acceptance. Never arms or sends motion com
+# 模块：导航、定位、巡检执行
+# 文档：docs/代码结构说明.md
+
 """Board integration acceptance. Never arms or sends motion commands."""
 import json
 import sys
@@ -12,6 +17,10 @@ client.on('navigation_state',lambda d:state.update(d))
 client.on('navigation_error',lambda d:errors.append(d['message']))
 client.connect('http://127.0.0.1:5800',transports=['polling'])
 def wait(test,seconds=55):
+    """等待。
+
+    参数：test、seconds。
+    """
     end=time.monotonic()+seconds;last=0
     while time.monotonic()<end:
         if test():return

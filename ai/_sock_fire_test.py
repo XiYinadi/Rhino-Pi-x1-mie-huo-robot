@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# ai/_sock_fire_test.py
+# 作用：诊断:连接 slam_viz :5800,开 fire_control,验证能收到 fire_frame / fire_
+# 模块：VLM 请求与诊断
+# 文档：docs/代码结构说明.md
+
 """诊断:连接 slam_viz :5800,开 fire_control,验证能收到 fire_frame / fire_status。"""
 import json
 import time
@@ -12,6 +17,10 @@ got_status = False
 
 @sio.on("fire_frame")
 def on_frame(d):
+    """处理 frame。
+
+    参数：d。
+    """
     global got_frame
     got_frame = True
     print("[test] fire_frame img len =", len(d.get("img", "")), flush=True)
@@ -19,6 +28,10 @@ def on_frame(d):
 
 @sio.on("fire_status")
 def on_status(st):
+    """处理 status。
+
+    参数：st。
+    """
     global got_status
     got_status = True
     key = ("fire", "confidence", "reason", "samples", "latency_s", "running")

@@ -1,3 +1,8 @@
+# slam/laser_mount.py
+# 作用：Single mounting transform used by odometry, TF and diagnosti
+# 模块：激光与惯性里程计、建图
+# 文档：docs/代码结构说明.md
+
 """Single mounting transform used by odometry, TF and diagnostic clearance."""
 import argparse
 import json
@@ -6,6 +11,11 @@ from pathlib import Path
 
 
 def load_mount(path=None):
+    """加载 mount。
+
+    参数：path。
+    返回：计算结果。
+    """
     path=Path(path) if path else Path(__file__).resolve().with_name('laser_mounting.json')
     data=json.loads(path.read_text())
     keys=('x_m','y_m','z_m','yaw_rad')
@@ -15,6 +25,11 @@ def load_mount(path=None):
 
 
 def base_point(x,y,mount):
+    """「base_point」的实现。
+
+    参数：x、y、mount。
+    返回：计算结果。
+    """
     c,s=math.cos(mount['yaw_rad']),math.sin(mount['yaw_rad'])
     return c*x-s*y+mount['x_m'],s*x+c*y+mount['y_m']
 
@@ -37,6 +52,11 @@ def rebase_pose(pose, old_mount, new_mount):
 
 
 def tf_arguments(mount):
+    """「tf_arguments」的实现。
+
+    参数：mount。
+    返回：计算结果。
+    """
     return ['--x',str(mount['x_m']),'--y',str(mount['y_m']),'--z',str(mount['z_m']),
             '--yaw',str(mount['yaw_rad']),'--pitch','0','--roll','0',
             '--frame-id','base_link','--child-frame-id','laser']

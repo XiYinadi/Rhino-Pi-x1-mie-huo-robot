@@ -1,3 +1,8 @@
+# navigation/navigation_startup.py
+# 作用：Start one fresh Nav2 lifecycle group after DDS discovery has
+# 模块：导航、定位、巡检执行
+# 文档：docs/代码结构说明.md
+
 """Start one fresh Nav2 lifecycle group after DDS discovery has settled.
 
 The Humble manager creates service clients and immediately autostarts. A lost
@@ -11,6 +16,10 @@ import time
 
 
 def main():
+    """命令行入口。
+
+    返回：计算结果。
+    """
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--manager',required=True,choices=['lifecycle_manager_localization','lifecycle_manager_navigation'])
     parser.add_argument('--nodes',required=True,nargs='+',choices=['map_server','amcl','controller_server','planner_server','bt_navigator','velocity_smoother'])
@@ -28,6 +37,10 @@ def main():
     states={name:node.create_client(GetState,'/'+name+'/get_state') for name in args.nodes}
 
     def spin_until(predicate,seconds,label):
+        """自旋 until。
+
+        参数：predicate、seconds、label。
+        """
         deadline=time.monotonic()+seconds
         while rclpy.ok() and time.monotonic()<deadline:
             if predicate():return
@@ -35,6 +48,11 @@ def main():
         raise RuntimeError('Timed out: '+label)
 
     def reply(client,request,label,seconds=8):
+        """「reply」的实现。
+
+        参数：client、request、label、seconds。
+        返回：计算结果。
+        """
         future=client.call_async(request)
         try:
             spin_until(future.done,seconds,label)

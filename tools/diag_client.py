@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# tools/diag_client.py
+# 作用：诊断:假扮网页客户端连 slam_viz,量真实的发送率与接收率。
+# 模块：诊断与测试工具
+# 文档：docs/代码结构说明.md
+
 """诊断:假扮网页客户端连 slam_viz,量真实的发送率与接收率。
 
 用法:
@@ -40,21 +45,31 @@ sio = socketio.Client(logger=VERBOSE, engineio_logger=VERBOSE)
 
 @sio.event
 def connect():
+    """「connect」的实现。"""
     print("已连接  transport=%s" % sio.transport(), flush=True)
 
 
 @sio.event
 def disconnect():
+    """「disconnect」的实现。"""
     print("断开", flush=True)
 
 
 @sio.on("*")
 def _catch(event, *args):
+    """内部辅助：catch。
+
+    参数：event。
+    """
     with lock:
         counts[event] += 1
 
 
 def main():
+    """命令行入口。
+
+    返回：计算结果。
+    """
     try:
         sio.connect(URL, transports=[TRANSPORT] if TRANSPORT != "auto" else None)
     except Exception as e:

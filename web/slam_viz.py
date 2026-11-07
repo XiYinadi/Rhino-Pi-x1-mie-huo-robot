@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# web/slam_viz.py
+# 作用：slam_viz.py — 犀牛派 SLAM 实时 Web 可视化
+# 模块：网页端与 SocketIO 服务
+# 文档：docs/代码结构说明.md
+
 """
 slam_viz.py — 犀牛派 SLAM 实时 Web 可视化
 ===========================================
@@ -51,8 +56,12 @@ from flask_socketio import SocketIO, join_room, leave_room
 from werkzeug.serving import WSGIRequestHandler
 
 
+# ---------------------------------------------------------------------------
+# RealtimeRequestHandler
+# ---------------------------------------------------------------------------
 class RealtimeRequestHandler(WSGIRequestHandler):
     # Send frame/command ACKs promptly on both WebSocket and polling sockets.
+    """RealtimeRequestHandler 类。"""
     disable_nagle_algorithm = True
 
 # ── ROS2 ───────────────────────────────────────────────────────────
@@ -229,11 +238,15 @@ def laser_scan_to_xy(msg: LaserScan) -> list:
 # ROS2 Node
 # ══════════════════════════════════════════════════════════════════════
 
+# ---------------------------------------------------------------------------
+# SlamVizNode
+# ---------------------------------------------------------------------------
 class SlamVizNode(Node):
     """ROS2 node that subscribes to /map and /scan, makes data available
     thread-safe to the broadcast loop."""
 
     def __init__(self):
+        """初始化实例。"""
         super().__init__("slam_viz_node")
 
         self._lock = threading.Lock()
@@ -325,12 +338,17 @@ class SlamVizNode(Node):
             self._pending_twist = (t, time.monotonic())
 
     def set_motor_arm(self, on):
+        """设置 motor arm。
+
+        参数：on。
+        """
         b = Bool()
         b.data = bool(on)
         with self._twist_lock:
             self._pending_arm = (b, time.monotonic())
 
     def _flush_drive_mirror(self):
+        """刷新 drive mirror。"""
         with self._twist_lock:
             twist, arm = self._pending_twist, self._pending_arm
             self._pending_twist = self._pending_arm = None
@@ -347,6 +365,10 @@ class SlamVizNode(Node):
             self._arm_pub.publish(msg)
 
     def _map_cb(self, msg: OccupancyGrid):
+        """映射 cb。
+
+        参数：msg。
+        """
         with self._lock:
             self._latest_map_msg = msg
             self._map_dirty = True
@@ -354,6 +376,10 @@ class SlamVizNode(Node):
 
     def _scan_cb(self, msg: LaserScan):
         # Convert outside lock (CPU work, no shared state access)
+        """内部辅助：scan_cb。
+
+        参数：msg。
+        """
         xy = laser_scan_to_xy(msg)
         with self._lock:
             self._latest_scan_xy = xy
@@ -363,6 +389,10 @@ class SlamVizNode(Node):
             self._last_scan_t = time.monotonic()
 
     def _imu_cb(self, msg: Imu):
+        """内部辅助：imu_cb。
+
+        参数：msg。
+        """
         values = [float(msg.linear_acceleration.x), float(msg.linear_acceleration.y),
                   float(msg.linear_acceleration.z)]
         if msg.linear_acceleration_covariance[0] == -1 or not all(math.isfinite(v) for v in values):
@@ -378,6 +408,10 @@ class SlamVizNode(Node):
                 self._imu_gyro_t = time.monotonic()
 
     def _odom_cb(self, msg: Odometry):
+        """内部辅助：odom_cb。
+
+        参数：msg。
+        """
         x = msg.pose.pose.position.x
         y = msg.pose.pose.position.y
         q = msg.pose.pose.orientation
@@ -541,16 +575,28 @@ socketio = SocketIO(
 @app.route("/")
 @app.route("/mapping")
 def index():
+    """「index」的实现。
+
+    返回：计算结果。
+    """
     return render_template_string(HTML_TEMPLATE, page_class="mapping-page")
 
 
 @app.route("/console")
 def console():
+    """「console」的实现。
+
+    返回：计算结果。
+    """
     return redirect('/mapping')
 
 
 @app.route("/control")
 def control():
+    """「control」的实现。
+
+    返回：计算结果。
+    """
     return render_template_string(HTML_TEMPLATE, page_class="control-page")
 
 
@@ -558,6 +604,10 @@ def control():
 @app.route('/patrol')
 @app.route('/navigation')
 def mission_page():
+    """「mission_page」的实现。
+
+    返回：计算结果。
+    """
     mode = {'/explore':'explore-page', '/patrol':'patrol-page', '/navigation':'navigation-page'}[request.path]
     return render_template_string(HTML_TEMPLATE, page_class='mission-page '+mode)
 
@@ -566,11 +616,19 @@ def mission_page():
 @app.route('/missions.js')
 @app.route('/navigation_page.js')
 def mission_asset():
+    """「mission_asset」的实现。
+
+    返回：计算结果。
+    """
     return send_file(os.path.join(os.path.dirname(os.path.realpath(__file__)), request.path.lstrip('/')))
 
 
 @app.get('/api/missions/readiness')
 def mission_readiness():
+    """「mission_readiness」的实现。
+
+    返回：计算结果。
+    """
     config = _navigation.config if _navigation is not None else {}
     error = _navigation.calibration_error() if _navigation is not None else '任务组件尚未就绪'
     keys = ('wheelbase_m','length_m','width_m','max_steering_rad','full_throttle_mps','max_speed_mps','trial_max_steering_rad','trial_pwm_cap')
@@ -586,6 +644,10 @@ def mission_readiness():
 @app.route('/control.css')
 @app.route('/control.js')
 def control_asset():
+    """「control_asset」的实现。
+
+    返回：计算结果。
+    """
     return send_file(os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                  request.path.lstrip('/')))
 
@@ -593,33 +655,57 @@ def control_asset():
 @app.route('/mapping.css')
 @app.route('/mapping.js')
 def mapping_asset():
+    """「mapping_asset」的实现。
+
+    返回：计算结果。
+    """
     return send_file(os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                  request.path.lstrip('/')))
 
 
 @app.route('/vendor/socket.io.min.js')
 def socketio_client_asset():
+    """「socketio_client_asset」的实现。
+
+    返回：计算结果。
+    """
     return send_file(os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                  'vendor', 'socket.io.min.js'), mimetype='text/javascript')
 
 
 @app.route('/navigation.js')
 def navigation_script():
+    """「navigation_script」的实现。
+
+    返回：计算结果。
+    """
     return send_file(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'navigation.js'), mimetype='text/javascript')
 
 
 @app.route('/autonomy.js')
 def autonomy_script():
+    """「autonomy_script」的实现。
+
+    返回：计算结果。
+    """
     return send_file(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'autonomy.js'), mimetype='text/javascript')
 
 
 def _automatic_active():
+    """内部辅助：automatic_active。
+
+    返回：计算结果。
+    """
     return any(getattr(getattr(_navigation,name,None),'active',False) is True
                for name in ('autonomy','patrol_runner'))
 
 
 @socketio.on('navigation_control')
 def navigation_control(data):
+    """「navigation_control」的实现。
+
+    参数：data。
+    """
     if _navigation is None:
         socketio.emit('navigation_error', {'message': _navigation_error or '导航尚未就绪'}, to=request.sid)
         return
@@ -637,6 +723,7 @@ def navigation_control(data):
 
 
 def _navigation_disarm():
+    """内部辅助：navigation_disarm。"""
     global _motor_armed, _drive_owner, _drive_owner_client
     _motor_armed = False
     _drive_owner = None
@@ -685,6 +772,10 @@ _map_last = {"scan_age": None, "map_age": None, "odom_age": None, "imu_age": Non
 
 
 def _map_state_payload():
+    """映射 state payload。
+
+    返回：计算结果。
+    """
     managed = _navigation is not None and _navigation.running() and getattr(_navigation,'mode',None)=='mapping'
     status = ("localization" if _navigation is not None and _navigation.running() and not managed
               else mapping_status(_map_last["scan_age"], _map_last["map_age"], _map_last["odom_age"]))
@@ -704,6 +795,7 @@ def _map_state_payload():
 
 
 def _emit_mapping_state():
+    """发送 mapping state。"""
     socketio.emit("mapping_state", _map_state_payload())
 
 
@@ -860,6 +952,7 @@ CAMERA_ROOM = "camera_preview"
 
 
 def _cam_publish_state():
+    """内部辅助：cam_publish_state。"""
     with _cam_lock:
         state = dict(_cam_status)
     socketio.emit("camera_state", state)
@@ -867,11 +960,20 @@ def _cam_publish_state():
 
 def _cam_preview(jpeg):
     # Forward the original JPEG: preserve its resolution and image quality.
+    """内部辅助：cam_preview。
+
+    参数：jpeg。
+    返回：计算结果。
+    """
     with Image.open(io.BytesIO(jpeg)) as picture:
         return jpeg, picture.width, picture.height
 
 
 def _cam_publish_frame(image, width, height, sequence=None, captured_at=None, jpeg=None):
+    """内部辅助：cam_publish_frame。
+
+    参数：image、width、height、sequence、captured_at、jpeg。
+    """
     payload = {"img": image, "w": width, "h": height,
                "sequence": sequence, "captured_at": captured_at}
     # Old clients retain the room contract. Updated pages allow at most two
@@ -897,6 +999,10 @@ def _cam_publish_frame(image, width, height, sequence=None, captured_at=None, jp
         binary_payload.pop('img')
     for sid, token, pending, binary in ready:
         def decoded(*args, sid=sid, token=token, pending=pending):
+            """「decoded」的实现。
+
+            参数：sid、token、pending。
+            """
             with _cam_lock:
                 if _cam_flow.get(sid) is pending:
                     pending.pop(token, None)
@@ -981,6 +1087,7 @@ _fire_status = {
 
 
 def _fire_publish_state():
+    """内部辅助：fire_publish_state。"""
     with _fire_lock:
         state = dict(_fire_status)
     socketio.emit("fire_status", state)
@@ -1083,6 +1190,7 @@ _gimbal_note_ts = 0.0
 
 
 def _emit_motor_state():
+    """发送 motor state。"""
     socketio.emit("motor_state", {"armed": _motor_armed, "driver": _drive_owner})
 
 
@@ -1129,6 +1237,7 @@ def _stage1_drive_packet(data):
 
 
 def stage1_drive_loop():
+    """「stage1_drive_loop」的实现。"""
     sock=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
     sock.bind(('127.0.0.1',5818))
     sock.settimeout(.1)
@@ -1198,6 +1307,7 @@ def _send_gimbal(dx, dy):
 
 @socketio.on("disconnect")
 def _on_disconnect():
+    """处理 disconnect。"""
     global _motor_armed, _drive_owner, _gimbal_owner
     patrol = getattr(_navigation, 'patrol_runner', None)
     navigation_owned = _navigation is not None and (request.sid == _navigation.nav_owner
@@ -1210,6 +1320,7 @@ def _on_disconnect():
         # 把驾驶权还给新 sid；真走了（关页面/断网）才 disarm。
         lost_sid = request.sid
         def _late_disarm():
+            """内部辅助：late_disarm。"""
             global _motor_armed, _drive_owner, _drive_owner_client
             if _motor_armed and _drive_owner == lost_sid:
                 _motor_armed = False
@@ -1257,6 +1368,10 @@ def _on_disconnect():
 
 @socketio.on("camera_control")
 def _on_camera_control(data):
+    """处理 camera control。
+
+    参数：data。
+    """
     if not isinstance(data, dict):
         return
     action = (data or {}).get("action")
@@ -1298,17 +1413,29 @@ def _on_camera_control(data):
 @socketio.on("camera_sync")
 def _on_camera_sync():
     # Clock alignment for estimated readout-to-browser age; never actuates hardware.
+    """处理 camera sync。
+
+    返回：计算结果。
+    """
     return time.time()
 
 
 @socketio.on("drive_sync")
 def _on_drive_sync():
     # Driver timestamps share this process's monotonic clock, never wall time.
+    """处理 drive sync。
+
+    返回：计算结果。
+    """
     return time.monotonic()
 
 
 @socketio.on("fire_control")
 def _on_fire_control(data):
+    """处理 fire control。
+
+    参数：data。
+    """
     action = (data or {}).get("action")
     if action == "start":
         _fire_clients.add(request.sid)
@@ -1345,6 +1472,10 @@ def drive_packet_fresh(data, now):
 
 @socketio.on("motor_control")
 def _on_motor_control(data):
+    """处理 motor control。
+
+    参数：data。
+    """
     global _motor_armed, _drive_owner, _drive_owner_client, _drive_owner_note_ts, _gimbal_owner, _lat_last_log
     action = (data or {}).get("action")
     if action == "vel":
@@ -1542,6 +1673,10 @@ _ACCESS_LOG_WARNED = False
 
 
 def _push_log(tag: str, line: str):
+    """推送 log。
+
+    参数：tag、line。
+    """
     global _ACCESS_LOG_WARNED
     if _ACCESS_LOG_RE.search(line):
         # 只提醒一次:这条警告本身也是条日志,限频才是有限的一跳。
@@ -1607,6 +1742,10 @@ def log_tail_loop():
 
 @socketio.on("connect")
 def _on_connect(auth=None):
+    """处理 connect。
+
+    参数：auth。
+    """
     global _drive_owner
     # 之前这里没有任何日志,连上来用的是 websocket 还是 long-polling 完全看不见
     # —— 而这两者的延迟差一个数量级(polling 每个包都要一次 HTTP 往返)。
@@ -1661,6 +1800,7 @@ def _on_connect(auth=None):
 
 @socketio.on("log_clear")
 def _on_log_clear():
+    """处理 log clear。"""
     with _log_lock:
         _log_buffer.clear()
 
@@ -1695,6 +1835,10 @@ def _shutdown(signum, frame):
 
 
 def main():
+    """命令行入口。
+
+    返回：计算结果。
+    """
     global _ros_node, _navigation, _navigation_error
 
     signal.signal(signal.SIGINT, _shutdown)
@@ -1722,10 +1866,19 @@ def main():
     from inspection_service import InspectionService, register_inspection
     from pathlib import Path
     def inspection_task(name):
+        """「inspection_task」的实现。
+
+        参数：name。
+        返回：计算结果。
+        """
         if _navigation is None:
             raise ValueError('任务模块尚未就绪；可以不绑定路线做定点检测')
         return _navigation.patrols.get(name)
     def inspection_pose():
+        """「inspection_pose」的实现。
+
+        返回：计算结果。
+        """
         if _navigation is not None and _navigation.localized(time.monotonic()):
             return dict(_navigation.last_pose, map=_navigation.active_map, frame='map')
         return None

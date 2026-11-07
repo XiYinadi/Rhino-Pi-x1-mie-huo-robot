@@ -1,3 +1,8 @@
+# stage1/test_web_input.py
+# 作用：Actual local UDP ingress handler with fake PWM output.
+# 模块：阶段一验收
+# 文档：docs/代码结构说明.md
+
 """Actual local UDP ingress handler with fake PWM output."""
 import ast
 import math
@@ -8,7 +13,9 @@ import unittest
 
 
 class InputTests(unittest.TestCase):
+    """InputTests 类。"""
     def test_owner_age_finite_and_disarm_gates(self):
+        """「test_owner_age_finite_and_disarm_gates」的实现。"""
         p=Path(__file__).resolve().parent.parent/'slam_viz.py'
         if not p.exists():p=Path.home()/'slam_viz.py'
         tree=ast.parse(p.read_text())

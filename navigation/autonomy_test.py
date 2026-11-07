@@ -1,3 +1,8 @@
+# navigation/autonomy_test.py
+# 作用：Mission sequencing uses in-memory navigation spies: never to
+# 模块：导航、定位、巡检执行
+# 文档：docs/代码结构说明.md
+
 """Mission sequencing uses in-memory navigation spies: never touches hardware."""
 import json
 import sys
@@ -17,7 +22,9 @@ from inspection_test import sample
 
 
 class Missions(unittest.TestCase):
+    """Missions 类。"""
     def setUp(self):
+        """「setUp」的实现。"""
         self.temp=tempfile.TemporaryDirectory();root=Path(self.temp.name)
         self.task=dict(name='test',map='room',cycles=1,waypoints=[dict(x=1.,y=1.,yaw=0.,dwell_s=0)])
         self.inspection=InspectionService(root/'data'/'inspections',task_get=lambda n:self.task,sample=sample,
@@ -34,6 +41,7 @@ class Missions(unittest.TestCase):
         self.r.camera_received=time.monotonic();self.r.camera_error=None
 
     def tearDown(self):
+        """「tearDown」的实现。"""
         if self.r.inspection_id:
             end=time.monotonic()+3
             while time.monotonic()<end:
@@ -45,28 +53,34 @@ class Missions(unittest.TestCase):
     def start(self):self.r.control(dict(action='patrol_start',name='test'),'driver')
 
     def test_start_requires_calibration(self):
+        """「test_start_requires_calibration」的实现。"""
         self.nav.config['calibrated']=False
         with self.assertRaises(ValueError):self.start()
         self.nav.send_goal.assert_not_called();self.nav.send_drive.assert_not_called()
 
     def test_nonowner_cannot_start(self):
+        """「test_nonowner_cannot_start」的实现。"""
         with self.assertRaises(ValueError):self.r.control(dict(action='patrol_start',name='test'),'other')
         self.assertFalse(self.r.active)
 
     def test_stale_camera_blocks_start(self):
+        """「test_stale_camera_blocks_start」的实现。"""
         self.r.camera['captured_at']-=30
         with self.assertRaises(ValueError):self.start()
 
     def test_map_mismatch_blocks(self):
+        """「test_map_mismatch_blocks」的实现。"""
         self.task['map']='other'
         with self.assertRaises(ValueError):self.start()
 
     def test_heartbeat_loss_stops_during_dwell(self):
+        """「test_heartbeat_loss_stops_during_dwell」的实现。"""
         self.start();self.r.state['status']='dwell';self.r.last_client-=1;self.r.tick()
         self.assertFalse(self.r.active);self.nav.send_drive.assert_called_with(0.,0.,False)
         self.nav.disarm.assert_called();self.assertTrue(self.r.report_pending)
 
     def test_alarm_stops_before_persisting_evidence(self):
+        """「test_alarm_stops_before_persisting_evidence」的实现。"""
         self.start();self.r.raise_alert(dict(self.r.camera,fire=True,reason='发现明火'))
         self.assertFalse(self.r.active);self.assertEqual(self.r.state['status'],'alert')
         alert=self.r.alert;self.assertTrue((self.r.root/alert['image']).is_file())
@@ -76,16 +90,19 @@ class Missions(unittest.TestCase):
         self.nav.send_drive.assert_called_with(0.,0.,False)
 
     def test_acknowledge_does_not_resume(self):
+        """「test_acknowledge_does_not_resume」的实现。"""
         self.start();self.r.raise_alert(dict(self.r.camera,fire=True,reason='发现明火'))
         self.r.control(dict(action='alert_ack'),'driver')
         self.assertFalse(self.r.active);self.assertTrue(self.r.alert['acknowledged_at'])
 
     def test_late_arrival_after_stop_cannot_capture(self):
+        """「test_late_arrival_after_stop_cannot_capture」的实现。"""
         self.start();self.r.tick();done=self.nav.send_goal.call_args.kwargs['on_result']
         self.r.halt('stop');done([],None)
         self.assertEqual(self.inspection.get(self.r.inspection_id)['records'],[])
 
     def test_arrival_must_match_actual_pose(self):
+        """「test_arrival_must_match_actual_pose」的实现。"""
         self.start();self.r.tick();done=self.nav.send_goal.call_args.kwargs['on_result']
         self.nav.last_pose=dict(x=9,y=9,yaw=0);done([],None)
         self.assertEqual(self.r.state['status'],'blocked');self.assertFalse(self.r.active)
@@ -94,6 +111,7 @@ class Missions(unittest.TestCase):
                    '不再可达（control 里 patrol_start 直接进 patrol_runner），'
                    '该断言不反映现网行为')
     def test_full_patrol_stops_then_captures_then_reports(self):
+        """「test_full_patrol_stops_then_captures_then_reports」的实现。"""
         self.start();self.r.tick();self.nav.send_goal.call_args.kwargs['on_result']([],None)
         self.assertEqual(self.r.state['status'],'dwell');self.r.wait_until=0;self.r.tick()
         # 2026-10-28: 板上负载高时检测/出报告线程 3 秒内跑不完，导致 tick 仍处于
@@ -107,18 +125,22 @@ class Missions(unittest.TestCase):
         self.assertFalse(session['records'][0]['operator_confirmed_arrival'])
 
     def test_restart_does_not_resume(self):
+        """「test_restart_does_not_resume」的实现。"""
         self.start();restored=AutonomyRuntime(self.nav,self.inspection)
         self.assertFalse(restored.active);self.assertEqual(restored.state['status'],'interrupted')
 
     def test_camera_loss_stops_between_goals(self):
+        """「test_camera_loss_stops_between_goals」的实现。"""
         self.start();self.r.camera_received-=5;self.r.tick()
         self.assertFalse(self.r.active);self.nav.send_goal.assert_not_called()
 
     def test_scan_loss_stops_between_goals(self):
+        """「test_scan_loss_stops_between_goals」的实现。"""
         self.start();self.nav.node._last_scan_t-=1;self.r.tick()
         self.assertFalse(self.r.active);self.nav.send_goal.assert_not_called()
 
     def test_final_uncertain_detection_is_not_completed_clean(self):
+        """「test_final_uncertain_detection_is_not_completed_clean」的实现。"""
         self.start();sid=self.r.inspection_id;s=self.inspection.get(sid)
         s['status']='completed';s['records']=[dict(id='a'*32,status='ok',step=0,verdict='uncertain',fire=False,
             confidence=.6,reason='待复核',captured_at=time.time(),image='a.jpg')]
@@ -128,10 +150,12 @@ class Missions(unittest.TestCase):
         self.assertEqual(statistics(s)['uncertain'],1)
 
     def test_timeout_cancels_stuck_goal(self):
+        """「test_timeout_cancels_stuck_goal」的实现。"""
         self.start();self.r.goal_started=time.monotonic()-121;self.nav.navigating=True
         self.r.tick();self.assertFalse(self.r.active);self.assertEqual(self.r.state['status'],'blocked')
 
     def test_restart_finishes_stopped_but_unarchived_inspection(self):
+        """「test_restart_finishes_stopped_but_unarchived_inspection」的实现。"""
         self.start();sid=self.r.inspection_id;self.r.halt('stop')
         restored=AutonomyRuntime(self.nav,self.inspection)
         self.assertFalse(restored.active);self.assertTrue(restored.report_pending)
@@ -141,6 +165,7 @@ class Missions(unittest.TestCase):
         self.assertEqual(self.inspection.get(sid)['status'],'completed')
 
     def test_unarchived_report_blocks_new_mission(self):
+        """「test_unarchived_report_blocks_new_mission」的实现。"""
         self.start();self.r.halt('stop')
         with self.assertRaises(ValueError):self.start()
 

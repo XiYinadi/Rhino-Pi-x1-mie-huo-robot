@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# motor/motor_hw.py
+# 作用：Motor hardware abstraction — dual-channel H-bridge + GMR qua
+# 模块：电机/舵机驱动与接线
+# 文档：docs/代码结构说明.md
+
 """Motor hardware abstraction — dual-channel H-bridge + GMR quadrature encoders.
 
 Provides these layers:
@@ -39,6 +44,9 @@ except ImportError:
 # --------------------------------------------------------------------------
 #  Software PWM (single thread, two channels, sleep-then-spin timing)
 # --------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# DualSoftPwm
+# ---------------------------------------------------------------------------
 class DualSoftPwm:
     """Two software PWM channels driven by one daemon thread at ``freq`` Hz.
 
@@ -60,6 +68,10 @@ class DualSoftPwm:
     """
 
     def __init__(self, chip, line_l, line_r, freq=1000.0, logger=None):
+        """初始化实例。
+
+        参数：chip、line_l、line_r、freq、logger。
+        """
         self._chip = chip
         self._l = self._chip.get_line(line_l)
         self._r = self._chip.get_line(line_r)
@@ -77,6 +89,7 @@ class DualSoftPwm:
         self._logger = logger
 
     def start(self):
+        """启动。"""
         if self._thread is None or not self._thread.is_alive():
             self._stop.clear()
             self._run.set()
@@ -84,21 +97,31 @@ class DualSoftPwm:
             self._thread.start()
 
     def stop(self):
+        """停止。"""
         self._run.clear()
         self._stop.set()
         self._l.set_value(0)
         self._r.set_value(0)
 
     def set_duty(self, d_l, d_r):
+        """设置 duty。
+
+        参数：d_l、d_r。
+        """
         with self._lock:
             self._duty_l = min(max(float(d_l), 0.0), 1.0)
             self._duty_r = min(max(float(d_r), 0.0), 1.0)
 
     def set_direction(self, dir_l, dir_r):
         # NOTE: direction pins are owned by GpioMotorHW, not here.
+        """设置 direction。
+
+        参数：dir_l、dir_r。
+        """
         raise NotImplementedError("use GpioMotorHW.set_direction()")
 
     def _loop(self):
+        """循环。"""
         period = 1.0 / self.freq
         while not self._stop.is_set():
             with self._lock:
@@ -179,6 +202,9 @@ class DualSoftPwm:
 # --------------------------------------------------------------------------
 #  Servo PWM (one channel, 50 Hz frame, pulse width in µs)
 # --------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# SoftServoPwm
+# ---------------------------------------------------------------------------
 class SoftServoPwm:
     """One software-PWM channel for a hobby servo: 50 Hz frame, µs pulse.
 
@@ -209,6 +235,10 @@ class SoftServoPwm:
     def __init__(self, chip_name, line, freq=50.0, center_us=1500.0,
                  range_us=500.0, min_us=500.0, max_us=2500.0,
                  invert=False, deadband=0.0, hysteresis_us=0.0, logger=None):
+        """初始化实例。
+
+        参数：chip_name、line、freq、center_us、range_us、min_us、max_us、invert、deadband、hysteresis_us、logger。
+        """
         if not _GPIO_AVAILABLE:
             raise RuntimeError(
                 'gpiod (libgpiod v1.x python bindings) not importable. '
@@ -258,12 +288,14 @@ class SoftServoPwm:
         self._thread = None
 
     def start(self):
+        """启动。"""
         if self._thread is None or not self._thread.is_alive():
             self._stop.clear()
             self._thread = threading.Thread(target=self._loop, daemon=True)
             self._thread.start()
 
     def stop(self):
+        """停止。"""
         with self._lock:
             self._pulse = None
         self._stop.set()
@@ -305,13 +337,25 @@ class SoftServoPwm:
 
     @property
     def parked(self):
+        """「parked」的实现。
+
+        返回：计算结果。
+        """
         return self._pulse is None
 
     @property
     def pulse_us(self):
+        """「pulse_us」的实现。
+
+        返回：计算结果。
+        """
         return self._pulse
 
     def _record(self, t_rise, t_fall, us):
+        """记录。
+
+        参数：t_rise、t_fall、us。
+        """
         w = t_fall - t_rise
         with self._stat_lock:
             self._widths.append(w)
@@ -339,6 +383,7 @@ class SoftServoPwm:
 
     # ---------------------------------------------------------------- loop
     def _loop(self):
+        """循环。"""
         period = 1.0 / self.freq
         while not self._stop.is_set():
             with self._lock:
@@ -426,6 +471,9 @@ def quad_step(prev_state, a, b):
     return delta, new_state
 
 
+# ---------------------------------------------------------------------------
+# QuadDecoder
+# ---------------------------------------------------------------------------
 class QuadDecoder:
     """Count A/B quadrature edges of one GMR encoder via libgpiod.
 
@@ -438,6 +486,10 @@ class QuadDecoder:
 
     def __init__(self, chip, a_off, b_off, name='enc', logger=None):
 
+        """初始化实例。
+
+        参数：chip、a_off、b_off、name、logger。
+        """
         self.a_off = int(a_off)
         self.b_off = int(b_off)
         self._chip = chip
@@ -459,6 +511,7 @@ class QuadDecoder:
         self._thread.start()
 
     def _loop(self):
+        """循环。"""
         while not self._stop.is_set():
             try:
                 # 阻塞等 0.2s 拿「有事件的 line 列表」;期间无事件就空转一圈。
@@ -485,6 +538,10 @@ class QuadDecoder:
         self.count += delta
 
     def read(self):
+        """读取。
+
+        返回：计算结果。
+        """
         return self.count
 
     def _die(self, exc):
@@ -504,6 +561,7 @@ class QuadDecoder:
         return self._error is not None
 
     def stop(self):
+        """停止。"""
         self._stop.set()
         try:
             self.bulk.release()
@@ -514,6 +572,9 @@ class QuadDecoder:
 # --------------------------------------------------------------------------
 #  Backends
 # --------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# MotorHW
+# ---------------------------------------------------------------------------
 class MotorHW:
     """Abstract hardware interface consumed by the ROS2 node."""
 
@@ -524,6 +585,9 @@ class MotorHW:
     def stop(self): ...
 
 
+# ---------------------------------------------------------------------------
+# GpioMotorHW
+# ---------------------------------------------------------------------------
 class GpioMotorHW(MotorHW):
     """Real backend: libgpiod character device + software PWM + quadrature.
 
@@ -536,6 +600,10 @@ class GpioMotorHW(MotorHW):
     def __init__(self, chip_name, pwm_l, ina_l, inb_l, pwm_r, ina_r, inb_r,
                  enc_l_a, enc_l_b, enc_r_a, enc_r_b, pwm_freq=1000.0,
                  enable_encoders=True, logger=None):
+        """初始化实例。
+
+        参数：chip_name、pwm_l、ina_l、inb_l、pwm_r、ina_r、inb_r、enc_l_a、enc_l_b、enc_r_a、enc_r_b、pwm_freq、enable_encoders、logger。
+        """
         if not _GPIO_AVAILABLE:
             raise RuntimeError(
                 'gpiod (libgpiod v1.x python bindings) not importable. '
@@ -562,9 +630,14 @@ class GpioMotorHW(MotorHW):
             self.enc_l = self.enc_r = None
 
     def start(self):
+        """启动。"""
         self.pwm.start()
 
     def set_duty(self, d_l, d_r):
+        """设置 duty。
+
+        参数：d_l、d_r。
+        """
         self.pwm.set_duty(d_l, d_r)
 
     def set_direction(self, dir_l, dir_r):
@@ -575,11 +648,16 @@ class GpioMotorHW(MotorHW):
         self._inb_r.set_value(0 if dir_r else 1)
 
     def read_encoders(self):
+        """读取 encoders。
+
+        返回：计算结果。
+        """
         if not self.enable_encoders:
             return 0, 0
         return self.enc_l.read(), self.enc_r.read()
 
     def stop(self):
+        """停止。"""
         self.pwm.stop()
         try:
             self._ina_l.set_value(0)
@@ -593,6 +671,9 @@ class GpioMotorHW(MotorHW):
             pass
 
 
+# ---------------------------------------------------------------------------
+# FakeMotorHW
+# ---------------------------------------------------------------------------
 class FakeMotorHW(MotorHW):
     """Simulated backend: duty→wheel speed with saturation + light noise.
 
@@ -603,6 +684,10 @@ class FakeMotorHW(MotorHW):
     def __init__(self, max_linear_speed=0.3, counts_per_meter=11752.0,
                  wheel_base=0.2, flip_l=False, flip_r=False, feedback=True,
                  logger=None):
+        """初始化实例。
+
+        参数：max_linear_speed、counts_per_meter、wheel_base、flip_l、flip_r、feedback、logger。
+        """
         self._v_max = max_linear_speed
         self._cpm = counts_per_meter
         self._wheel_base = wheel_base
@@ -619,19 +704,32 @@ class FakeMotorHW(MotorHW):
         self._lock = threading.Lock()
 
     def start(self):
+        """启动。"""
         self._last_t = time.monotonic()
 
     def set_duty(self, d_l, d_r):
+        """设置 duty。
+
+        参数：d_l、d_r。
+        """
         with self._lock:
             self._duty_l = min(max(float(d_l), 0.0), 1.0)
             self._duty_r = min(max(float(d_r), 0.0), 1.0)
 
     def set_direction(self, dir_l, dir_r):
+        """设置 direction。
+
+        参数：dir_l、dir_r。
+        """
         with self._lock:
             self._dir_l = bool(dir_l)
             self._dir_r = bool(dir_r)
 
     def read_encoders(self):
+        """读取 encoders。
+
+        返回：计算结果。
+        """
         if not self._feedback:
             # 模拟「编码器没接线」:计数恒为 0。控制环里等价于 err ≡ 目标值,
             # 正是修复前「摇杆松手电机不停」的成因,所以 mock 必须能表达这个
@@ -655,5 +753,6 @@ class FakeMotorHW(MotorHW):
             return tuple(self._counts)
 
     def stop(self):
+        """停止。"""
         self.set_duty(0.0, 0.0)
         self.set_direction(True, True)

@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# stage1/restore.py
+# 作用：Explicit cleanup: stop diagnostic bridge and restore origina
+# 模块：阶段一验收
+# 文档：docs/代码结构说明.md
+
 """Explicit cleanup: stop diagnostic bridge and restore original motor parameters.
 
 Run on the board as aidlux. sudo is invoked normally; no stored password here.
@@ -19,6 +24,7 @@ import yaml
 
 
 def main():
+    """命令行入口。"""
     here=Path(__file__).resolve().parent
     backup=Path((here/'latest_backup.txt').read_text().strip())
     meta=json.loads((backup/'metadata.json').read_text())

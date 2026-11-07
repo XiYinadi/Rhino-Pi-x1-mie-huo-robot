@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# motor/joy_inject.py
+# 作用：摇杆注入器 — 绕开浏览器,直接向 pwm_proc 的 UDP 口灌摇杆值。
+# 模块：电机/舵机驱动与接线
+# 文档：docs/代码结构说明.md
+
 """摇杆注入器 — 绕开浏览器,直接向 pwm_proc 的 UDP 口灌摇杆值。
 
 **为什么需要它**:网页 → SocketIO → slam_viz → UDP → pwm_proc 这条链路上有
@@ -162,6 +167,10 @@ def channel_axis(wheel, x):
 
 
 def send(sock, addr, l, a, armed):
+    """发送。
+
+    参数：sock、addr、l、a、armed。
+    """
     sock.sendto(json.dumps({"l": float(l), "a": float(a),
                             "armed": bool(armed)}).encode(), addr)
 
@@ -245,6 +254,7 @@ def build_sweep(wheel, dmin, dmax, dstep, secs, armed):
 
 
 def main():
+    """命令行入口。"""
     ap = argparse.ArgumentParser()
     ap.add_argument("--host", default=DEFAULT_HOST)
     ap.add_argument("--port", type=int, default=DEFAULT_PORT)

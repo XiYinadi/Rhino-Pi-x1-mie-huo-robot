@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# gimbal/gimbal_inject.py
+# 作用：云台注入器 — 绕开浏览器,直接向 gimbal_proc 的 UDP 口灌 dx/dy。
+# 模块：二维云台串口控制
+# 文档：docs/代码结构说明.md
+
 """云台注入器 — 绕开浏览器,直接向 gimbal_proc 的 UDP 口灌 dx/dy。
 
 **为什么需要它**(和 `joy_inject.py` 同样的理由,但未知量更多)
@@ -96,6 +101,10 @@ def final_value(v):
 
 
 def send(sock, addr, dx, dy):
+    """发送。
+
+    参数：sock、addr、dx、dy。
+    """
     sock.sendto(json.dumps({"dx": int(dx), "dy": int(dy)}).encode(), addr)
 
 
@@ -176,6 +185,7 @@ def build_scenario(secs):
 
 
 def main():
+    """命令行入口。"""
     ap = argparse.ArgumentParser(description="云台注入器(绕开浏览器直灌 UDP)")
     ap.add_argument("--host", default=DEFAULT_HOST)
     ap.add_argument("--port", type=int, default=DEFAULT_PORT)

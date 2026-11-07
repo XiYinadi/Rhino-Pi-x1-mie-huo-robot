@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# motor/servo_proc.py
+# 作用：舵机独立进程:50Hz 软 PWM,拥有**自己**的 GIL。
+# 模块：电机/舵机驱动与接线
+# 文档：docs/代码结构说明.md
+
 """舵机独立进程:50Hz 软 PWM,拥有**自己**的 GIL。
 
 为什么拆出来
@@ -33,6 +38,7 @@ STAT_MAX = 250          # 5 秒 @50Hz
 
 
 def main():
+    """命令行入口。"""
     ap = argparse.ArgumentParser()
     ap.add_argument('--chip', default='gpiochip0')
     ap.add_argument('--line', type=int, required=True)
@@ -72,6 +78,10 @@ def main():
     stop = {'flag': False}
 
     def _stop(signum, frame):
+        """停止。
+
+        参数：signum、frame。
+        """
         stop['flag'] = True
 
     signal.signal(signal.SIGTERM, _stop)

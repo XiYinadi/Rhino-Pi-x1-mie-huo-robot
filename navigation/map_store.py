@@ -1,3 +1,8 @@
+# navigation/map_store.py
+# 作用：Versioned map storage. No ROS imports; map publication never
+# 模块：导航、定位、巡检执行
+# 文档：docs/代码结构说明.md
+
 """Versioned map storage. No ROS imports; map publication never overwrites a map."""
 import json
 import math
@@ -11,25 +16,52 @@ from pathlib import Path
 
 
 def yaw(q):
+    """「yaw」的实现。
+
+    参数：q。
+    返回：计算结果。
+    """
     return math.atan2(2 * (q.w*q.z + q.x*q.y), 1 - 2 * (q.y*q.y + q.z*q.z))
 
 
 def checked_name(name):
+    """「checked_name」的实现。
+
+    参数：name。
+    返回：计算结果。
+    """
     if not isinstance(name, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,64}', name):
         raise ValueError('地图名只能用 1–64 个英文字母、数字、下划线或短横线')
     return name
 
 
+# ---------------------------------------------------------------------------
+# MapStore
+# ---------------------------------------------------------------------------
 class MapStore:
+    """MapStore 类。"""
     def __init__(self, directory):
+        """初始化实例。
+
+        参数：directory。
+        """
         self.root = Path(directory).resolve()
         self.root.mkdir(parents=True, exist_ok=True)
 
     def list(self):
+        """列出。
+
+        返回：计算结果。
+        """
         return [p.name for p in sorted(self.root.iterdir())
                 if not p.name.startswith('.') and p.is_dir() and (p/'map.yaml').is_file()]
 
     def path(self, name):
+        """「path」的实现。
+
+        参数：name。
+        返回：计算结果。
+        """
         path = self.root / checked_name(name) / 'map.yaml'
         if not path.is_file() or path.resolve().parent.parent != self.root:
             raise ValueError('地图不存在或路径不合法')
@@ -39,6 +71,11 @@ class MapStore:
     REGION_COLORS = ('#4f9dff', '#f3a36d', '#7bd88f', '#c792ea', '#ffd166', '#ef6f6c')
 
     def regions(self, name):
+        """「regions」的实现。
+
+        参数：name。
+        返回：计算结果。
+        """
         path = self.path(name).parent / 'regions.json'
         if not path.is_file():
             return []
@@ -49,6 +86,11 @@ class MapStore:
         return data.get('regions') if isinstance(data, dict) and isinstance(data.get('regions'), list) else []
 
     def save_regions(self, name, regions):
+        """保存 regions。
+
+        参数：name、regions。
+        返回：计算结果。
+        """
         self.path(name)  # 地图必须存在
         if not isinstance(regions, list) or len(regions) > 40:
             raise ValueError('区域数量须在 0–40 之间')
@@ -86,9 +128,19 @@ class MapStore:
         return cleaned
 
     def official(self, name):
+        """「official」的实现。
+
+        参数：name。
+        返回：计算结果。
+        """
         return (self.path(name).parent / '.official').is_file()
 
     def set_official(self, name, official=True):
+        """设置 official。
+
+        参数：name、official。
+        返回：计算结果。
+        """
         self.path(name)
         marker = self.path(name).parent / '.official'
         if official:
@@ -98,6 +150,11 @@ class MapStore:
         return self.official(name)
 
     def rename(self, name, new_name):
+        """「rename」的实现。
+
+        参数：name、new_name。
+        返回：计算结果。
+        """
         folder = self.path(name).parent
         new_name = checked_name(new_name)
         if new_name == name:
@@ -109,6 +166,11 @@ class MapStore:
         return new_name
 
     def info(self, name):
+        """「info」的实现。
+
+        参数：name。
+        返回：计算结果。
+        """
         path = self.path(name)
         try:
             meta = yaml.safe_load(path.read_text(encoding='utf-8')) or {}
@@ -133,6 +195,10 @@ class MapStore:
                     regions=len(self.regions(name)))
 
     def inventory(self):
+        """「inventory」的实现。
+
+        返回：计算结果。
+        """
         rows = []
         for name in self.list():
             try:
@@ -156,6 +222,11 @@ class MapStore:
         return target.name
 
     def save(self, msg, name):
+        """保存。
+
+        参数：msg、name。
+        返回：计算结果。
+        """
         name = checked_name(name)
         w, h = msg.info.width, msg.info.height
         resolution = msg.info.resolution

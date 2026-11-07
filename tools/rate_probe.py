@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# tools/rate_probe.py
+# 作用：测 /wheel_speed(即 motor_driver._control_tick)的**真实**周期分布。
+# 模块：诊断与测试工具
+# 文档：docs/代码结构说明.md
+
 """测 /wheel_speed(即 motor_driver._control_tick)的**真实**周期分布。
 
 为什么要单独写一个:cmd_log.py 每条消息都 print+flush,在负载高的板子上自己
@@ -25,12 +30,18 @@ DUR = float(sys.argv[1]) if len(sys.argv) > 1 else 60.0
 
 
 def pct(xs, p):
+    """「pct」的实现。
+
+    参数：xs、p。
+    返回：计算结果。
+    """
     if not xs:
         return float('nan')
     return xs[min(len(xs) - 1, int(len(xs) * p))]
 
 
 def main():
+    """命令行入口。"""
     rclpy.init()
     n = rclpy.create_node('rate_probe')
 
@@ -39,6 +50,10 @@ def main():
     last = {'duty': None}
 
     def on_duty(m):
+        """处理 duty。
+
+        参数：m。
+        """
         hits.append(time.monotonic())
         last['duty'] = (m.linear.z, m.angular.x)
 

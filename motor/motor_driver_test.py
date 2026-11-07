@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# motor/motor_driver_test.py
+# 作用：Headless unit tests for motor control math + fake hardware.
+# 模块：电机/舵机驱动与接线
+# 文档：docs/代码结构说明.md
+
 """Headless unit tests for motor control math + fake hardware.
 
 No ROS, no GPIO — run anywhere:  python3 ~/motor_driver_test.py
@@ -20,11 +25,17 @@ WHEEL_BASE = 0.20
 
 
 def approx(a, b, tol=1e-9):
+    """「approx」的实现。
+
+    参数：a、b、tol。
+    返回：计算结果。
+    """
     return abs(a - b) <= tol
 
 
 def test_kinematics():
     # straight line
+    """「test_kinematics」的实现。"""
     vl, vr = twist_to_wheel_speeds(0.2, 0.0, WHEEL_BASE)
     assert approx(vl, 0.2) and approx(vr, 0.2), (vl, vr)
     # pure rotation: right +, left −
@@ -37,6 +48,7 @@ def test_kinematics():
 
 
 def test_pid():
+    """「test_pid」的实现。"""
     p = Pid(kp=1.0, ki=0.5, kd=0.05, i_limit=0.3, out_limit=0.9)
     # zero error → zero output
     assert approx(p.update(0.0, 0.02), 0.0)
@@ -193,6 +205,7 @@ def test_joy_to_channels():
 def test_quadrature():
     # Forward rotation: A leads B → counts increase (state sequence
     # 00→10→11→01→00 with A as MSB and the QUAD convention).
+    """「test_quadrature」的实现。"""
     state = 0
     seq = [(1, 0), (1, 1), (0, 1), (0, 0)]   # one full forward cycle
     total = 0
@@ -215,6 +228,7 @@ def test_quadrature():
 
 
 def test_fake_hw():
+    """「test_fake_hw」的实现。"""
     fw = FakeMotorHW(max_linear_speed=0.3, counts_per_meter=1000.0,
                      wheel_base=WHEEL_BASE)
     fw.start()
@@ -421,6 +435,7 @@ def test_idle_park():
 
 
 def main():
+    """命令行入口。"""
     print('motor_driver_test:')
     test_kinematics()
     test_pid()

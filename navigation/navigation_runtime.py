@@ -1,3 +1,8 @@
+# navigation/navigation_runtime.py
+# 作用：Web navigation integration, gated actuator output, and owned
+# 模块：导航、定位、巡检执行
+# 文档：docs/代码结构说明.md
+
 """Web navigation integration, gated actuator output, and owned Nav2 lifecycle.
 
 Nav2 publishes only /navigation/cmd_vel_smoothed, never the manual /cmd_vel.
@@ -24,8 +29,16 @@ from patrol_runner import PatrolRunner
 from localization_settle import StaticPoseSettle
 
 
+# ---------------------------------------------------------------------------
+# NavigationRuntime
+# ---------------------------------------------------------------------------
 class NavigationRuntime:
+    """NavigationRuntime 类。"""
     def __init__(self, node, socketio, send_drive, armed, owner, disarm):
+        """初始化实例。
+
+        参数：node、socketio、send_drive、armed、owner、disarm。
+        """
         from rclpy.action import ActionClient
         from nav2_msgs.action import NavigateToPose, ComputePathToPose
         from geometry_msgs.msg import Twist, PoseWithCovarianceStamped
@@ -125,6 +138,7 @@ class NavigationRuntime:
             self.session_file.unlink(missing_ok=True)
 
     def check_lifecycle(self):
+        """检查 lifecycle。"""
         from lifecycle_msgs.srv import GetState
         with self.lock:
             if not self.running():
@@ -153,6 +167,10 @@ class NavigationRuntime:
                     continue
                 self.lifecycle_pending[name] = (future, now)
                 def done(future, key=name):
+                    """「done」的实现。
+
+                    参数：future、key。
+                    """
                     with self.lock:
                         pending = self.lifecycle_pending.get(key)
                         if pending is None or pending[0] is not future:
@@ -165,6 +183,7 @@ class NavigationRuntime:
                 future.add_done_callback(done)
 
     def reset_lifecycle(self):
+        """重置 lifecycle。"""
         with self.lock:
             pending = list(self.lifecycle_pending.items())
             self.lifecycle_pending.clear()
@@ -174,9 +193,17 @@ class NavigationRuntime:
                 future.cancel()
 
     def running(self):
+        """「running」的实现。
+
+        返回：计算结果。
+        """
         return self.process is not None and self.process.poll() is None
 
     def calibration_error(self):
+        """「calibration_error」的实现。
+
+        返回：计算结果。
+        """
         try:
             validate_calibration(self.config)
             return None
@@ -184,18 +211,30 @@ class NavigationRuntime:
             return str(e)
 
     def drive_error(self):
+        """「drive_error」的实现。
+
+        返回：计算结果。
+        """
         try:
             validate_navigation(self.config)
             return None
         except ValueError as error:return str(error)
 
     def on_trial_scan(self, msg):
+        """处理 trial scan。
+
+        参数：msg。
+        """
         age=(self.node.get_clock().now().nanoseconds-msg.header.stamp.sec*10**9-msg.header.stamp.nanosec)/1e9
         with self.lock:
             self.trial_clearance=scan_clearance(msg,self.trial_mount,self.config) if -.05<=age<.4 else None
             self.trial_scan_at=time.monotonic()-max(0.,age) if -.05<=age<.4 else None
 
     def payload(self):
+        """「payload」的实现。
+
+        返回：计算结果。
+        """
         with self.lock:
             now = time.monotonic()
             ready = self.localized(now)
@@ -228,11 +267,22 @@ class NavigationRuntime:
                 navigator_ready=self.nav.server_is_ready() and all(self.lifecycle.get(k) == 3 for k in ('bt_navigator','controller_server','velocity_smoother')))
 
     def emit(self):
+        """发送。"""
         self.socketio.emit('navigation_state', self.payload())
 
     def transform_snapshot(self, state):
+        """「transform_snapshot」的实现。
+
+        参数：state。
+        返回：计算结果。
+        """
         from rclpy.time import Time
         def transform(frame, points, stamp=None):
+            """「transform」的实现。
+
+            参数：frame、points、stamp。
+            返回：计算结果。
+            """
             query = Time.from_msg(stamp) if stamp is not None else Time()
             tf = self.tf.lookup_transform('map', frame, query).transform
             angle = yaw(tf.rotation)
@@ -295,6 +345,11 @@ class NavigationRuntime:
 
     def localized(self, now):
         # AMCL need not republish covariance while stationary; TF must stay fresh.
+        """「localized」的实现。
+
+        参数：now。
+        返回：计算结果。
+        """
         if getattr(self,'mode','localization') == 'mapping':
             with self.node._lock:
                 return self.running() and self.last_pose is not None and fresh(now,self.node._last_map_t,10)
@@ -303,6 +358,10 @@ class NavigationRuntime:
                 and self.lifecycle.get('amcl') == 3 and self.lifecycle.get('map_server') == 3)
 
     def on_pose(self, msg):
+        """处理 pose。
+
+        参数：msg。
+        """
         with self.lock:
             self.last_amcl = time.monotonic()
             cov = msg.pose.covariance
@@ -321,12 +380,20 @@ class NavigationRuntime:
                     self.note = settle.message()
 
     def on_command(self, msg):
+        """处理 command。
+
+        参数：msg。
+        """
         with self.lock:
             if self.navigating:
                 self.command = (msg.linear.x, msg.angular.z)
                 self.last_command = time.monotonic()
 
     def cancel(self, reason='导航已取消', disarm=False, keep_route=False, keep_mission=False):
+        """取消当前任务。
+
+        参数：reason、disarm、keep_route、keep_mission。
+        """
         with self.lock:
             # 2026-10-25: 手动接管/急停/取消导航时，巡检执行器一起停。
             if not keep_mission and getattr(self, 'patrol_runner', None):
@@ -361,6 +428,11 @@ class NavigationRuntime:
                 self.route_preview.cancel(reason)
 
     def _clearance_blocked(self, now):
+        """内部辅助：clearance_blocked。
+
+        参数：now。
+        返回：计算结果。
+        """
         c = self.trial_clearance
         if fresh(now, self.trial_scan_at, .6) and c is not None:
             self._clearance_unknown_from = None
@@ -379,6 +451,11 @@ class NavigationRuntime:
     def _command_lost(self, now):
         # 2026-10-24: 目标下发后 controller 要初始化 costmap/TF，首条 cmd_vel
         # 可能晚于 0.25s；给 3s 启动宽限，之后才按 0.25s + 0.5s 去抖判死。
+        """内部辅助：command_lost。
+
+        参数：now。
+        返回：计算结果。
+        """
         t = self.last_command
         if t is None:
             return False
@@ -395,6 +472,11 @@ class NavigationRuntime:
     def _sensor_lost(self, key, now, sample_t, timeout, grace=0.5):
         # 2026-10-24: 0.4s 超时本身保留，但要求**持续**超时才停。load 高时
         # 单次调度/回调抖动会造成一拍假性超时（IMU、雷达各误停过一次）。
+        """内部辅助：sensor_lost。
+
+        参数：key、now、sample_t、timeout、grace。
+        返回：计算结果。
+        """
         if fresh(now, sample_t, timeout):
             self._stale_from.pop(key, None)
             return False
@@ -402,6 +484,7 @@ class NavigationRuntime:
         return (now - first) > grace
 
     def tick(self):
+        """执行一次主循环：刷新状态、检查门控并下发输出。"""
         from rclpy.time import Time
         with self.lock:
             now = time.monotonic()
@@ -541,6 +624,11 @@ class NavigationRuntime:
                 self.cancel(str(e), disarm=True)
 
     def pose_message(self, data):
+        """「pose_message」的实现。
+
+        参数：data。
+        返回：计算结果。
+        """
         from geometry_msgs.msg import PoseStamped
         values = [float(data.get(k, 0)) for k in ('x', 'y', 'yaw')]
         if not all(math.isfinite(v) for v in values):
@@ -553,6 +641,10 @@ class NavigationRuntime:
         return p
 
     def check_goal(self, pose):
+        """检查 goal。
+
+        参数：pose。
+        """
         with self.node._lock:
             msg = self.node._latest_map_msg
         if msg is None:
@@ -567,6 +659,10 @@ class NavigationRuntime:
             raise ValueError('目标位于障碍物或未知区域，请选择空白可通行区域')
 
     def initial_pose(self, data):
+        """「initial_pose」的实现。
+
+        参数：data。
+        """
         from geometry_msgs.msg import PoseWithCovarianceStamped
         if not self.running():
             raise ValueError('请先加载地图')
@@ -588,6 +684,10 @@ class NavigationRuntime:
         self.nomotion_next = 0.0
 
     def send_goal(self, data, sid, preview=False, start=None, on_result=None):
+        """发送 goal。
+
+        参数：data、sid、preview、start、on_result。
+        """
         from nav2_msgs.action import NavigateToPose, ComputePathToPose
         from action_msgs.msg import GoalStatus
         with self.lock:
@@ -655,6 +755,10 @@ class NavigationRuntime:
             self._command_stale_from = None
             preview_start=dict(self.last_pose)
             def accepted(future):
+                """「accepted」的实现。
+
+                参数：future。
+                """
                 with self.lock:
                     try:
                         handle = future.result()
@@ -666,6 +770,10 @@ class NavigationRuntime:
                             raise ValueError('导航服务拒绝任务')
                         self.goal_handle = handle
                         def finished(f):
+                            """「finished」的实现。
+
+                            参数：f。
+                            """
                             with self.lock:
                                 if epoch != self.epoch:
                                     return
@@ -725,6 +833,10 @@ class NavigationRuntime:
     def patrol_leg_begin(self, sid):
         # 巡检每段开始：把试航链路摆成「正在导航」的状态，否则 Nav2 的
         # cmd_vel 会被 on_command 丢掉（它只在 navigating 为真时接收）。
+        """「patrol_leg_begin」的实现。
+
+        参数：sid。
+        """
         with self.lock:
             with self.node._lock:
                 odom = dict(self.node._odometry or {})
@@ -741,6 +853,7 @@ class NavigationRuntime:
                 self.trial_drive.reset()
 
     def patrol_leg_end(self):
+        """「patrol_leg_end」的实现。"""
         with self.lock:
             self.navigating = False
             self.nav_owner = None
@@ -750,6 +863,10 @@ class NavigationRuntime:
         self.send_drive(0.0, 0.0, self.armed())
 
     def preview_patrol(self, data, sid):
+        """「preview_patrol」的实现。
+
+        参数：data、sid。
+        """
         with self.lock:
             task = validate_task(data)
             if task['map'] != self.active_map:
@@ -767,6 +884,10 @@ class NavigationRuntime:
                 lambda start, target, done: self.send_goal(target, sid, preview=True, start=start, on_result=done))
 
     def start(self, name=None, mode='localization'):
+        """启动。
+
+        参数：name、mode。
+        """
         with self.lock:
             if self.running():
                 raise ValueError('定位已启动；请先停止再切换地图')
@@ -816,6 +937,7 @@ class NavigationRuntime:
             if mode=='mapping':self.status,self.note='mapping','建图与避障服务启动中；尚未自动行驶'
 
     def stop(self):
+        """停止。"""
         self.cancel('定位已停止', disarm=True)
         with self.lock:
             if self.running():
@@ -834,6 +956,11 @@ class NavigationRuntime:
             self.status, self.note = 'off', '定位已停止'
 
     def control(self, data, sid):
+        """「control」的实现。
+
+        参数：data、sid。
+        返回：计算结果。
+        """
         action = data.get('action')
         if action == 'status':
             return  # Read-only refresh; the web handler emits the current payload.
@@ -883,6 +1010,7 @@ class NavigationRuntime:
                     raise ValueError('地图操作正在进行，请稍候')
                 self.busy = True
             def worker():
+                """「worker」的实现。"""
                 try:
                     if action == 'save':
                         with self.node._lock:

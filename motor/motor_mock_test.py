@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# motor/motor_mock_test.py
+# 作用：Mock 端到端测试 (FakeMotorHW, 不碰 GPIO) —— 单进程内完成。
+# 模块：电机/舵机驱动与接线
+# 文档：docs/代码结构说明.md
+
 """Mock 端到端测试 (FakeMotorHW, 不碰 GPIO) —— 单进程内完成。
 
 一个节点同时扮演三个角色:
@@ -49,6 +54,11 @@ FAILURES = []
 
 
 def check(label, ok, detail=''):
+    """检查。
+
+    参数：label、ok、detail。
+    返回：计算结果。
+    """
     print(('  ✓ ' if ok else '  ✗ FAIL: ') + label + ((' — ' + detail) if detail else ''))
     if not ok:
         FAILURES.append(label)
@@ -56,15 +66,23 @@ def check(label, ok, detail=''):
 
 
 def spin_for(node, seconds):
+    """自旋 for。
+
+    参数：node、seconds。
+    """
     end = time.monotonic() + seconds
     while time.monotonic() < end:
         rclpy.spin_once(node, timeout_sec=0.02)
 
 
+# ---------------------------------------------------------------------------
+# Harness
+# ---------------------------------------------------------------------------
 class Harness(Node):
     """前端 + 测量端。"""
 
     def __init__(self):
+        """初始化实例。"""
         super().__init__('mock_harness')
         self.target_v = 0.0
         self.publishing = True
@@ -78,6 +96,7 @@ class Harness(Node):
         self.create_timer(1.0 / RATE_HZ, self._tick)
 
     def _tick(self):
+        """执行一次循环体。"""
         if not self.publishing:
             return
         m = Twist()
@@ -86,14 +105,27 @@ class Harness(Node):
 
     def _on_duty(self, m):
         # linear.z = 左轮 duty, angular.x = 右轮 duty (见 motor_driver._control_tick)
+        """处理 duty。
+
+        参数：m。
+        """
         self.duty = (m.linear.z, m.angular.x)
         self.duty_ts = time.monotonic()
 
     def _on_odom(self, m):
+        """处理 odom。
+
+        参数：m。
+        """
         self.odom_x = m.pose.pose.position.x
         self.odom_ts = time.monotonic()
 
     def arm(self, timeout=8.0):
+        """「arm」的实现。
+
+        参数：timeout。
+        返回：计算结果。
+        """
         cli = self.create_client(SetBool, '/motor_enable')
         end = time.monotonic() + timeout
         while not cli.service_is_ready() and time.monotonic() < end:
@@ -107,6 +139,11 @@ class Harness(Node):
 
 
 def start_driver(enc, feedback=True):
+    """启动 driver。
+
+    参数：enc、feedback。
+    返回：计算结果。
+    """
     log = open(LOG, 'wb')
     cmd = ['python3', os.path.join(HERE, 'motor_driver.py'),
            '--ros-args',
@@ -124,6 +161,10 @@ def start_driver(enc, feedback=True):
 
 
 def stop_driver(proc):
+    """停止 driver。
+
+    参数：proc。
+    """
     if proc is None or proc.poll() is not None:
         return
     try:
@@ -137,6 +178,10 @@ def stop_driver(proc):
 
 
 def run_phase(enc, feedback=True):
+    """运行 phase。
+
+    参数：enc、feedback。
+    """
     label = 'A 闭环 use_encoders:=true' if enc else 'B 开环 use_encoders:=false (真机配置)'
     if not feedback:
         label = 'C 闭环但无编码器反馈 (use_encoders:=true, 计数读不到)'
@@ -207,6 +252,10 @@ def run_phase(enc, feedback=True):
 
 
 def main():
+    """命令行入口。
+
+    返回：计算结果。
+    """
     rclpy.init()
     try:
         run_phase(True, feedback=True)      # A 闭环

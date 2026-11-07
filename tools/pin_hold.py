@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# tools/pin_hold.py
+# 作用：把电机控制脚钉死在固定电平,方便用万用表逐点排查「为什么电机不动」。
+# 模块：诊断与测试工具
+# 文档：docs/代码结构说明.md
+
 """把电机控制脚钉死在固定电平,方便用万用表逐点排查「为什么电机不动」。
 
 不用软件 PWM —— 输出的是**稳定直流电平**,万用表读数不会跳。
@@ -42,6 +47,10 @@ _stop = False
 
 
 def _on_signal(signum, _frame):
+    """处理 signal。
+
+    参数：signum、_frame。
+    """
     global _stop
     _stop = True
 

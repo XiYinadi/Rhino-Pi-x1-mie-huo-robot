@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# ai/_vlm_probe.py
+# 作用：诊断:单次 VLM 长提示词请求是否会打崩服务。直接 cv2 抓相机帧。
+# 模块：VLM 请求与诊断
+# 文档：docs/代码结构说明.md
+
 """诊断:单次 VLM 长提示词请求是否会打崩服务。直接 cv2 抓相机帧。"""
 import base64
 import json

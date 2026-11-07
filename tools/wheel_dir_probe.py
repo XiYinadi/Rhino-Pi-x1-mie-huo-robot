@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# tools/wheel_dir_probe.py
+# 作用：单通道方向探针：先停 pwm_proc，再逐通道给 A/B 两种方向位 + 15% 占空比。
+# 模块：诊断与测试工具
+# 文档：docs/代码结构说明.md
+
 """单通道方向探针：先停 pwm_proc，再逐通道给 A/B 两种方向位 + 15% 占空比。
 
   pkill -f 'python3 .*pwm_proc.py'
@@ -26,6 +31,10 @@ PERIOD = 0.001
 
 
 def running():
+    """「running」的实现。
+
+    返回：计算结果。
+    """
     out = subprocess.run(['pgrep', '-af', 'python3 .*pwm_proc\\.py'],
                          capture_output=True, text=True).stdout
     return [ln for ln in out.splitlines() if 'pgrep' not in ln]
@@ -45,6 +54,10 @@ for name, num in (('pwm_l', PWM_L), ('ina_l', INA_L), ('inb_l', INB_L),
 
 
 def spin(pwm):
+    """自旋。
+
+    参数：pwm。
+    """
     lines[pwm].set_value(1)
     time.sleep(PERIOD * DUTY)
     lines[pwm].set_value(0)
@@ -52,6 +65,10 @@ def spin(pwm):
 
 
 def seg(wheel, ina, inb, pwm):
+    """「seg」的实现。
+
+    参数：wheel、ina、inb、pwm。
+    """
     for state, tag in ((True, 'A INA=1/INB=0'), (False, 'B INA=0/INB=1')):
         lines[ina].set_value(1 if state else 0)
         lines[inb].set_value(0 if state else 1)

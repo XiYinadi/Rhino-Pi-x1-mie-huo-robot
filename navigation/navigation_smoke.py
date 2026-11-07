@@ -1,3 +1,8 @@
+# navigation/navigation_smoke.py
+# 作用：On-board non-driving acceptance: save, reload, localize, pla
+# 模块：导航、定位、巡检执行
+# 文档：docs/代码结构说明.md
+
 """On-board non-driving acceptance: save, reload, localize, plan, reject motion."""
 import json
 import math
@@ -18,6 +23,10 @@ client.on('navigation_error', lambda data: errors.append(data['message']))
 
 
 def wait(predicate, seconds=30):
+    """等待。
+
+    参数：predicate、seconds。
+    """
     end = time.monotonic()+seconds
     while time.monotonic()<end:
         if predicate(): return

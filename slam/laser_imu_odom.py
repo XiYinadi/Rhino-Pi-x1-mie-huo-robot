@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# slam/laser_imu_odom.py
+# 作用：Laser translation + gyro yaw prior. Publishes the sole /odom
+# 模块：激光与惯性里程计、建图
+# 文档：docs/代码结构说明.md
+
 """Laser translation + gyro yaw prior. Publishes the sole /odom and odom->base_link."""
 import math
 import argparse
@@ -23,11 +28,21 @@ from laser_mount import load_mount
 
 
 def stamp_seconds(stamp):
+    """「stamp_seconds」的实现。
+
+    参数：stamp。
+    返回：计算结果。
+    """
     return stamp.sec + stamp.nanosec*1e-9
 
 
+# ---------------------------------------------------------------------------
+# LaserImuOdom
+# ---------------------------------------------------------------------------
 class LaserImuOdom(Node):
+    """LaserImuOdom 类。"""
     def __init__(self):
+        """初始化实例。"""
         super().__init__('laser_imu_odom')
         self.history = GyroHistory()
         self.mount = load_mount()
@@ -45,6 +60,10 @@ class LaserImuOdom(Node):
         self.get_logger().info('Encoder-free laser/gyro odometry; IMU missing => laser-only with warning')
 
     def on_imu(self, msg):
+        """处理 imu。
+
+        参数：msg。
+        """
         acceleration = np.array([msg.linear_acceleration.x, msg.linear_acceleration.y, msg.linear_acceleration.z])
         if self.up is None:
             magnitude = np.linalg.norm(acceleration)
@@ -56,6 +75,10 @@ class LaserImuOdom(Node):
         self.history.add(stamp_seconds(msg.header.stamp), float(rate @ self.up))
 
     def on_scan(self, msg):
+        """处理 scan。
+
+        参数：msg。
+        """
         if getattr(getattr(self,'motion',None),'fault',None) is not None:
             return  # Latched: publish no fresh pose/TF until a stationary restart.
         points, normals = scan_to_points_normals(msg, max_range=12.)
@@ -134,6 +157,10 @@ class LaserImuOdom(Node):
             self.get_logger().info(f'{mode} pose={self.pose} good={self.good} gyro_frames={self.assisted} rejected={self.failed} residual={error:.4f}m')
 
     def publish(self, stamp, velocity):
+        """发布。
+
+        参数：stamp、velocity。
+        """
         x, y, theta = self.pose
         odom = Odometry()
         odom.header.stamp = stamp
@@ -160,6 +187,7 @@ class LaserImuOdom(Node):
 
 
 def main():
+    """命令行入口。"""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.parse_known_args()
     rclpy.init()

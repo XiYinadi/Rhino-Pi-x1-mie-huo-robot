@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# tools/enc_test.py
+# 作用：编码器接线测试 —— 手动转轮子,看 4 路输入有没有边沿。
+# 模块：诊断与测试工具
+# 文档：docs/代码结构说明.md
+
 """编码器接线测试 —— 手动转轮子,看 4 路输入有没有边沿。
 
 不驱动电机,零风险。用于在通电试电机之前,先确认编码器接线正确。
@@ -44,6 +49,10 @@ IDX = {l: i for i, (l, _) in enumerate(ENC)}
 
 
 def on_edge(off, _is_rising):
+    """处理 edge。
+
+    参数：off、_is_rising。
+    """
     counts[IDX[off]] += 1
 
 

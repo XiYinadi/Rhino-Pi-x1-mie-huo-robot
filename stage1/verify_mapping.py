@@ -1,3 +1,8 @@
+# stage1/verify_mapping.py
+# 作用：Static board acceptance; subscribes only, never sends drive 
+# 模块：阶段一验收
+# 文档：docs/代码结构说明.md
+
 """Static board acceptance; subscribes only, never sends drive commands."""
 import json
 import time
@@ -10,11 +15,24 @@ from tf2_ros import Buffer, TransformListener
 
 
 def main():
+    """命令行入口。
+
+    返回：计算结果。
+    """
     rclpy.init()
     node = Node('gyro_mapping_acceptance')
     counts, last, detail = {}, {}, {}
     def receive(name):
+        """接收。
+
+        参数：name。
+        返回：计算结果。
+        """
         def callback(msg):
+            """「callback」的实现。
+
+            参数：msg。
+            """
             counts[name] = counts.get(name, 0)+1
             last[name] = time.monotonic()
             if name == 'map':

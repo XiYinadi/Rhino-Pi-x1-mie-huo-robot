@@ -1,3 +1,8 @@
+# camera/camera_test.py
+# 作用：相机取流与火情检测
+# 模块：相机取流与火情检测
+# 文档：docs/代码结构说明.md
+
 import cv2
 import os
 

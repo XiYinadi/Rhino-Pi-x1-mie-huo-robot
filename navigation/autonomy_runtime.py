@@ -1,3 +1,8 @@
+# navigation/autonomy_runtime.py
+# 作用：Supervised exploration and patrol sequencing using the exist
+# 模块：导航、定位、巡检执行
+# 文档：docs/代码结构说明.md
+
 """Supervised exploration and patrol sequencing using the existing gated Nav2 output.
 
 No direct GPIO, arming, or inference. Every mission requires a visible owning
@@ -20,8 +25,16 @@ from frontier_explorer import select_frontiers
 from inspection_service import atomic_json, timestamp, classify
 
 
+# ---------------------------------------------------------------------------
+# AutonomyRuntime
+# ---------------------------------------------------------------------------
 class AutonomyRuntime:
+    """AutonomyRuntime 类。"""
     def __init__(self, nav, inspections):
+        """初始化实例。
+
+        参数：nav、inspections。
+        """
         self.nav,self.inspections=nav,inspections
         self.lock=nav.lock
         self.root=nav.root/'data'/'autonomy';self.root.mkdir(parents=True,exist_ok=True)
@@ -44,23 +57,34 @@ class AutonomyRuntime:
             except ValueError:self.inspection_id=None
 
     def persist(self):
+        """「persist」的实现。"""
         atomic_json(self.root/'state.json',dict(state=self.state,alert=self.alert))
 
     def snapshot(self):
+        """返回当前状态的只读快照。
+
+        返回：计算结果。
+        """
         report_ready=bool(self.inspection_id and self.inspections.get(self.inspection_id)['status']=='completed')
         return copy.deepcopy(dict(self.state,active=self.active,alert=self.alert,preview=self.preview,
                                   camera_ready=self.camera_ready(),inspection_id=self.inspection_id,report_ready=report_ready))
 
     def camera_ready(self):
+        """「camera_ready」的实现。
+
+        返回：计算结果。
+        """
         data=self.camera
         return (not self.camera_error and data is not None and data.get('capture_ok') is True
                 and fresh(time.time(),data.get('captured_at'),18) and fresh(time.monotonic(),self.camera_received,4))
 
     def start_threads(self):
+        """启动 threads。"""
         threading.Thread(target=self.monitor_camera,daemon=True).start()
         threading.Thread(target=self.loop,daemon=True).start()
 
     def monitor_camera(self):
+        """「monitor_camera」的实现。"""
         while True:
             try:
                 with urllib.request.urlopen('http://127.0.0.1:5812/inspection.json',timeout=2) as r:data=json.load(r)
@@ -75,6 +99,10 @@ class AutonomyRuntime:
             time.sleep(.5)
 
     def grid(self):
+        """「grid」的实现。
+
+        返回：计算结果。
+        """
         with self.nav.node._lock:
             msg=self.nav.node._latest_map_msg;age=time.monotonic()-self.nav.node._last_map_t
         if msg is None or age>10:raise ValueError('没有新鲜地图，无法自动探索')
@@ -83,6 +111,10 @@ class AutonomyRuntime:
                     origin=(t.x,t.y,yaw(q)),data=msg.data),self.nav.node._last_map_t
 
     def check_start(self,sid,kind):
+        """检查 start。
+
+        参数：sid、kind。
+        """
         if self.active or self.compute_pending:raise ValueError('已有自动任务或探索计算正在进行')
         if self.report_pending:raise ValueError('正在归档上次巡检，请等待报告生成')
         with self.inspections.lock:
@@ -100,6 +132,10 @@ class AutonomyRuntime:
             raise ValueError('路径规划与避障服务尚未就绪')
 
     def begin(self,sid,kind):
+        """「begin」的实现。
+
+        参数：sid、kind。
+        """
         self.epoch+=1;self.active=True;self.sid=sid;self.last_client=time.monotonic()
         self.inspection_id=None;self.visited=[];self.empty_rounds=0;self.last_empty_stamp=None
         self.state=dict(status='exploring' if kind=='explore' else 'navigating',kind=kind,
@@ -108,9 +144,17 @@ class AutonomyRuntime:
         self.deadline=time.monotonic()+1200;self.wait_until=0;self.persist()
 
     def heartbeat(self,sid):
+        """「heartbeat」的实现。
+
+        参数：sid。
+        """
         if self.active and sid==self.sid:self.last_client=time.monotonic()
 
     def halt(self,reason,status='stopped'):
+        """「halt」的实现。
+
+        参数：reason、status。
+        """
         self.active=False;self.epoch+=1;self.compute_pending=False
         self.state.update(status=status,message=reason,ended_at=timestamp(),goal=None)
         self.nav.cancel(reason,disarm=True,keep_mission=True)
@@ -118,10 +162,18 @@ class AutonomyRuntime:
         self.report_pending=bool(self.inspection_id);self.persist()
 
     def cancelled(self,reason):
+        """「cancelled」的实现。
+
+        参数：reason。
+        """
         if self.active:self.halt(reason)
 
     def raise_alert(self,data):
         # Stop before disk writes or report work, and never auto-resume after clear.
+        """抛出 alert。
+
+        参数：data。
+        """
         self.halt('发现疑似火情或不确定检测，已停车并等待人工复核','alert')
         alert=dict(id=uuid.uuid4().hex,created_at=timestamp(),reason=str(data.get('reason',''))[:1000],
                    confidence=data['confidence'],verdict=data.get('verdict') if data.get('verdict') in ('suspected','uncertain') else classify(data),captured_at=data['captured_at'],
@@ -138,12 +190,17 @@ class AutonomyRuntime:
         if self.inspection_id:self.inspections.attach_alert(self.inspection_id,alert)
 
     def request_frontiers(self,move=False):
+        """「request_frontiers」的实现。
+
+        参数：move。
+        """
         if self.compute_pending:raise ValueError('正在计算探索目标，请稍候')
         if not self.nav.last_pose:raise ValueError('尚未取得有效机器人位置')
         grid,stamp=self.grid();pose=dict(self.nav.last_pose);epoch=self.epoch
         clearance=max(math.hypot(x,y) for x,y in footprint_points(self.nav.config))+.10
         self.compute_pending=True
         def worker():
+            """「worker」的实现。"""
             try:result=select_frontiers(grid,pose,clearance,self.visited)
             except Exception as e:result=dict(error=str(e),candidates=[],complete=False)
             with self.lock:
@@ -168,9 +225,17 @@ class AutonomyRuntime:
         threading.Thread(target=worker,daemon=True).start()
 
     def move(self,target,arrived):
+        """「move」的实现。
+
+        参数：target、arrived。
+        """
         epoch=self.epoch
         self.goal_started=time.monotonic()
         def done(path,error):
+            """「done」的实现。
+
+            参数：path、error。
+            """
             with self.lock:
                 if not self.active or epoch!=self.epoch:return
                 if error:self.halt('自动任务受阻：'+str(error),'blocked');return
@@ -183,10 +248,15 @@ class AutonomyRuntime:
         self.nav.send_goal(target,self.sid,on_result=done)
 
     def exploration_arrived(self,target):
+        """「exploration_arrived」的实现。
+
+        参数：target。
+        """
         self.visited.append(dict(target));self.state.update(status='exploring',completed_points=len(self.visited),goal=None,message='已到观察点，等待地图更新')
         self.wait_until=time.monotonic()+3
 
     def save_exploration(self):
+        """保存 exploration。"""
         with self.nav.node._lock:
             msg=self.nav.node._latest_map_msg;age=time.monotonic()-self.nav.node._last_map_t
         if msg is None or age>10:raise ValueError('地图已过期，未保存')
@@ -195,12 +265,14 @@ class AutonomyRuntime:
         self.state['saved_map']=path.parent.name;self.persist()
 
     def patrol_arrived(self):
+        """「patrol_arrived」的实现。"""
         session=self.inspections.get(self.inspection_id)
         task=session['task'];point=task['waypoints'][session['next_step']%len(task['waypoints'])]
         self.wait_until=time.monotonic()+max(1,point['dwell_s'])
         self.state.update(status='dwell',goal=None,message='已到巡检点，停车稳定画面后检测')
 
     def tick(self):
+        """执行一次主循环：刷新状态、检查门控并下发输出。"""
         with self.lock:
             if self.report_pending and self.inspection_id:
                 session=self.inspections.get(self.inspection_id)
@@ -251,6 +323,7 @@ class AutonomyRuntime:
                     self.move(point,self.patrol_arrived)
 
     def loop(self):
+        """循环。"""
         while True:
             try:self.tick()
             except Exception as e:
@@ -260,6 +333,10 @@ class AutonomyRuntime:
             time.sleep(.1)
 
     def control(self,data,sid):
+        """「control」的实现。
+
+        参数：data、sid。
+        """
         with self.lock:
             action=data['action']
             if action=='alert_ack':
@@ -290,12 +367,26 @@ class AutonomyRuntime:
 
 
 def register_autonomy(app,runtime):
+    """「register_autonomy」的实现。
+
+    参数：app、runtime。
+    返回：计算结果。
+    """
     from flask import jsonify,send_file
     @app.get('/api/autonomy/state')
     def autonomy_state():
+        """「autonomy_state」的实现。
+
+        返回：计算结果。
+        """
         with runtime.lock:return jsonify(runtime.snapshot())
     @app.get('/autonomy/evidence/<image>')
     def autonomy_evidence(image):
+        """「autonomy_evidence」的实现。
+
+        参数：image。
+        返回：计算结果。
+        """
         if not re.fullmatch(r'[0-9a-f]{32}\.jpg',image):return '',404
         if not (runtime.root/(image[:-4]+'.json')).is_file():return '',404
         return send_file(runtime.root/image,mimetype='image/jpeg')

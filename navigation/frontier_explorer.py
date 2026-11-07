@@ -1,21 +1,45 @@
+# navigation/frontier_explorer.py
+# 作用：Conservative frontier selection on known free space; no ROS 
+# 模块：导航、定位、巡检执行
+# 文档：docs/代码结构说明.md
+
 """Conservative frontier selection on known free space; no ROS or actuators."""
 import math
 from collections import deque
 
 
 def select_frontiers(grid, pose, clearance_m, excluded=()):
+    """选择 frontiers。
+
+    参数：grid、pose、clearance_m、excluded。
+    返回：计算结果。
+    """
     w,h,res=grid['width'],grid['height'],grid['resolution']
     data=grid['data'];ox,oy,theta=grid['origin']
     if w<1 or h<1 or w*h>1_000_000 or len(data)!=w*h or not math.isfinite(res) or res<=0:
         raise ValueError('地图尺寸或分辨率不适合自动探索')
     c,s=math.cos(theta),math.sin(theta)
     def cell(x,y):
+        """「cell」的实现。
+
+        参数：x、y。
+        返回：计算结果。
+        """
         dx,dy=x-ox,y-oy
         return math.floor((c*dx+s*dy)/res),math.floor((-s*dx+c*dy)/res)
     def world(i):
+        """「world」的实现。
+
+        参数：i。
+        返回：计算结果。
+        """
         x,y=(i%w+.5)*res,(i//w+.5)*res
         return ox+c*x-s*y,oy+s*x+c*y
     def neighbors(i, diagonal=False):
+        """「neighbors」的实现。
+
+        参数：i、diagonal。
+        """
         x,y=i%w,i//w
         steps=((-1,0),(1,0),(0,-1),(0,1))
         if diagonal:steps+=((-1,-1),(-1,1),(1,-1),(1,1))

@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# ai/_vlm_req.py
+# 作用：参数化 VLM 请求:用法 _vlm_req.py <img_src|CAM> <long|short>
+# 模块：VLM 请求与诊断
+# 文档：docs/代码结构说明.md
+
 """参数化 VLM 请求:用法 _vlm_req.py <img_src|CAM> <long|short>"""
 import base64
 import json

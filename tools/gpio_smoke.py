@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# tools/gpio_smoke.py
+# 作用：GPIO smoke + libgpiod API-compat test for motor_hw.py on 犀牛派
+# 模块：诊断与测试工具
+# 文档：docs/代码结构说明.md
+
 """GPIO smoke + libgpiod API-compat test for motor_hw.py on 犀牛派.
 
 1. Verifies every libgpiod call motor_hw.py makes exists in THIS build

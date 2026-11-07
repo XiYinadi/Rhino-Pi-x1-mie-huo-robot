@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# motor/motor_test.py
+# 作用：最小电机测试 —— 不跑 ROS,直接驱动 GpioMotorHW。
+# 模块：电机/舵机驱动与接线
+# 文档：docs/代码结构说明.md
+
 """最小电机测试 —— 不跑 ROS,直接驱动 GpioMotorHW。
 
 这是**唯一能逐个轮子单独驱动**的工具:`/cmd_vel` 是差速指令,永远同时驱动两轮,
@@ -44,7 +49,11 @@ sys.path.insert(0, "/usr/local/lib/python3.10/dist-packages")
 from motor_hw import GpioMotorHW
 
 
+# ---------------------------------------------------------------------------
+# Abort
+# ---------------------------------------------------------------------------
 class Abort(Exception):
+    """Abort 类。"""
     pass
 
 
@@ -143,6 +152,11 @@ try:
         print("  某一侧单独看正常、但整车左右转是反的 → 那是 swap_lr 的事,翻 flip_* 没用。")
     else:
         def step(label, dl, dr, dir_l, dir_r):
+            """推进。
+
+            参数：label、dl、dr、dir_l、dir_r。
+            返回：计算结果。
+            """
             hw.set_direction(dir_l, dir_r)
             time.sleep(0.05)
             e0 = hw.read_encoders()

@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# slam/map_saver.py
+# 作用：Save SLAM map from /map topic to PGM + YAML files (no nav2_m
+# 模块：激光与惯性里程计、建图
+# 文档：docs/代码结构说明.md
+
 """Save SLAM map from /map topic to PGM + YAML files (no nav2_map_server needed)."""
 import sys
 import math
@@ -45,7 +50,12 @@ free_thresh: 0.25
 
 
 class MapSaver(Node):
+    """MapSaver 类。"""
     def __init__(self, filename: str):
+        """初始化实例。
+
+        参数：filename。
+        """
         super().__init__("map_saver")
         self.filename = filename
         self.received = False
@@ -55,6 +65,10 @@ class MapSaver(Node):
         self.get_logger().info(f"Waiting for /map... (will save to {filename})")
 
     def callback(self, msg: OccupancyGrid):
+        """「callback」的实现。
+
+        参数：msg。
+        """
         if self.received:
             return
         self.received = True
@@ -70,6 +84,7 @@ class MapSaver(Node):
 
 
 def main():
+    """命令行入口。"""
     parser = argparse.ArgumentParser(description="Save /map to PGM+YAML")
     parser.add_argument(
         "-f", "--file", default="my_map",
