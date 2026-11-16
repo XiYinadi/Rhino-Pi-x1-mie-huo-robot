@@ -10,6 +10,12 @@
                                                       → /dev/ttyHS1 (PIN_29) → 云台
 ```
 
+> **接收端固件**：云台侧是自研 STM32F103C8T6 控制板，固件在
+> [`hardware/firmware/stm32-gimbal/`](../hardware/firmware/stm32-gimbal/)，
+> 接线图在 [`hardware/接线图-云台控制板.pdf`](../hardware/接线图-云台控制板.pdf)。
+> 固件按本目录 `gimbal_proto.py` 记录的 6 字节协议解析：`0xAA` 速度帧（int16 大端、
+> 速度锁存）、`0xBB` 动作帧（角度清零 / 开环回零）；换算为 `步/秒 = |值| × 80`。
+
 犀牛派是**发端**（只发帧，从不接收），所以**只接 pin29(TX) + pin30(GND)**；pin16 不接。
 **完全不碰 GPIO** ⇒ 不可能和 `pwm_proc` 撞 `line busy`。
 
