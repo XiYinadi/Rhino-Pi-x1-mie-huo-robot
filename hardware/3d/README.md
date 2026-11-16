@@ -11,12 +11,18 @@
 | `预览-整车装配.png` | 总装渲染预览（1800×1300） | ✅ |
 | `装配说明.md` | 作者对 V11 总装的说明（组件数、来源、已知限制） | ✅ |
 | `验证记录.txt` | 总装保存/重开的核验记录（72 实例 / 53 零件 / 0 错误） | ✅ |
-| `Full_robot_V11.SLDASM` + 53 个 `*.SLDPRT` | SolidWorks 2024 总装与零件（原始 CAD） | ⬜ 体积 124 MB，待单独归档 |
+| `Full_robot_V11.SLDASM` + 53 个 `*.SLDPRT` | SolidWorks 2024 总装与零件（原始 CAD，124 MB） | 📦 Release 附件 |
 | `Full_robot_V11.STEP` / `.STL` | 通用中间格式（评审/第三方查看用） | ⬜ 待从 SolidWorks 导出 |
 
-> 总装原始包 **124 MB**（SLDASM 62 MB + 53 个零件）。为避免仓库每次 clone 都拉上百 MB，
-> 计划以 **GitHub Release 附件** 或单独的 `cad` 分支提供，并在本 README 里给出下载入口；
-> 仓库内保留预览图与说明，保证文档可读。
+### 📦 下载整车 CAD
+
+> **https://github.com/XiYinadi/Rhino-Pi-x1-mie-huo-robot/releases/tag/v11-cad**
+>
+> 附件 `Full_robot_V11_CAD.zip`（约 116 MB）包含 `Full_robot_V11.SLDASM` 与全部 53 个 SLDPRT。
+> 解压后**保持同目录**，用 SolidWorks 2024 打开 `Full_robot_V11.SLDASM`。
+
+> 为什么不放仓库：124 MB 的二进制会让每次 `git clone` 都多拉上百 MB，
+> 因此走 Release 附件；仓库内保留预览图、装配说明与核验记录，文档仍然自洽。
 
 ## 装配信息（来自 `装配说明.md` 与 `验证记录.txt`）
 
