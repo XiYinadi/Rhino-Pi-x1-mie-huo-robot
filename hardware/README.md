@@ -70,13 +70,16 @@
 动作帧：0xBB | cmd 0 0 0 | SUM             (1=角度清零，2=开环回零)
 ```
 
-## 三、待补
+## 三、状态
 
-- [x] 整车 **3D 装配**（SolidWorks V11，预览与说明见 [`3d/`](3d/)，原始 CAD 124 MB 待单独归档）
-- [ ] 整车 **STEP / STL 导出**（在 SolidWorks 里 文件 → 另存为，见 [`3d/README.md`](3d/README.md)）
-- [ ] 车体**结构图**（三视图 / 爆炸图，建议用 SolidWorks 工程图导 PDF）
+- [x] 整车 **3D 装配**（SolidWorks V11：预览 + 装配说明 + 核验记录，原始 CAD 见 Release）
+- [x] 整车 **STEP AP214**（`3d/Full_robot_V11.STEP.zip`，原始 91.5 MB 走 Release）
+- [x] 扩展板原理图 / PCB STEP / EDA 源工程
+- [x] 云台控制板接线图 + C8T6 固件
+- [x] 整机实物照片
+- [-] 车体结构三视图：**不做**，结构以预览图 + 装配说明 + STEP 为准（见 [`3d/README.md`](3d/README.md)）
 - [ ] 更多实物照片（正/侧/后视图、接口特写）
-- [ ] 云台控制板的 PCB 三维模型（如有，导出 STEP 放本目录）
+- [ ] 云台控制板的 PCB 三维模型（可选）
 
 ## 四、图纸重新导出方法
 
