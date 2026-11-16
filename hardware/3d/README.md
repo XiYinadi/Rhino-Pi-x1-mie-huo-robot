@@ -11,18 +11,25 @@
 | `预览-整车装配.png` | 总装渲染预览（1800×1300） | ✅ |
 | `装配说明.md` | 作者对 V11 总装的说明（组件数、来源、已知限制） | ✅ |
 | `验证记录.txt` | 总装保存/重开的核验记录（72 实例 / 53 零件 / 0 错误） | ✅ |
+| `Full_robot_V11.STEP.zip` | 整车 **STEP AP214**（91.5 MB，压缩后 23 MB；任何 CAD 都能打开） | ✅ |
 | `Full_robot_V11.SLDASM` + 53 个 `*.SLDPRT` | SolidWorks 2024 总装与零件（原始 CAD，124 MB） | 📦 Release 附件 |
-| `Full_robot_V11.STEP` / `.STL` | 通用中间格式（评审/第三方查看用） | ⬜ 待从 SolidWorks 导出 |
+| `Full_robot_V11.STEP`（原文件） | 未压缩 STEP（91.5 MB），供不便解压的评审直接下载 | 📦 Release 附件 |
+| `Full_robot_V11.STL` | 三角网格（只适合看外形，不适合量尺寸） | ⬜ 可选 |
 
 ### 📦 下载整车 CAD
 
-> **https://github.com/XiYinadi/Rhino-Pi-x1-mie-huo-robot/releases/tag/v11-cad**
+> Release：**https://github.com/XiYinadi/Rhino-Pi-x1-mie-huo-robot/releases/tag/v11-cad**
 >
-> 附件 `Full_robot_V11_CAD.zip`（约 116 MB）包含 `Full_robot_V11.SLDASM` 与全部 53 个 SLDPRT。
-> 解压后**保持同目录**，用 SolidWorks 2024 打开 `Full_robot_V11.SLDASM`。
+> | 附件 | 大小 | 内容 |
+> |---|---|---|
+> | `Full_robot_V11.STEP` | 91.5 MB | 整车 STEP AP214（单文件，推荐） |
+> | `Full_robot_V11_CAD.zip` | 116 MB | `Full_robot_V11.SLDASM` + 53 个 SLDPRT（SolidWorks 原始工程） |
+>
+> STEP 解压/直接用任意 CAD 打开即可看整机；SLDASM 需解压后**保持同目录**用 SolidWorks 2024 打开。
+> 仓库内还放了 `Full_robot_V11.STEP.zip`（23 MB），不想去 Release 时直接解压即可。
 
-> 为什么不放仓库：124 MB 的二进制会让每次 `git clone` 都多拉上百 MB，
-> 因此走 Release 附件；仓库内保留预览图、装配说明与核验记录，文档仍然自洽。
+> 为什么不把 91.5 MB 的 STEP 原始文件放进仓库：会让每次 `git clone` 多拉近 100 MB。
+> 仓库内保留压缩版（23 MB）+ 预览 + 说明，文档仍然自洽。
 
 ## 装配信息（来自 `装配说明.md` 与 `验证记录.txt`）
 

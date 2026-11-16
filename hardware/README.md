@@ -16,8 +16,8 @@
 | `firmware/stm32-gimbal/` | 云台步进电机控制固件（Keil 工程 + 源码） | C | ✅ |
 | `firmware/README.md` | 固件说明：引脚、协议、编译烧录、联调 | Markdown | ✅ |
 | `3d/` | 整车三维装配：预览图、装配说明、核验记录 | 见 `3d/README.md` | ✅ |
-| `3d/Full_robot_V11.STEP` / `.STL` | 整车通用中间格式（评审/第三方查看） | STEP/STL | ⬜ 待导出 |
-| 整车 SLDASM + 53 零件 | SolidWorks 原始总装（124 MB） | Release 附件 | 📦 见 [`3d/README.md`](3d/README.md) |
+| `3d/Full_robot_V11.STEP.zip` | 整车 **STEP AP214**（91.5 MB → 压缩 23 MB） | STEP/ZIP | ✅ |
+| 整车 SLDASM + 53 零件 / 原始 STEP | SolidWorks 总装（124 MB）与未压缩 STEP（91.5 MB） | Release 附件 | 📦 见 [`3d/README.md`](3d/README.md) |
 
 > ✅ 原理图与接线图现在是**矢量 PDF**（由嘉立创 EDA 导出），满足规范"PDF/CAD、≥300dpi"。
 > `硬件图纸-犀牛派引出板.pdf` 里的插图是位图（≈165dpi），仅供速览；正式提交用上面两个矢量 PDF。
